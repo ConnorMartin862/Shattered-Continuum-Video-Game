@@ -39,20 +39,20 @@ export function buildRandomChunk(k, xOff = 0, onDeath) {
     // 0 = solid floor, no obstacles
     // 1 = large gap with flickering platform (freeze required)
     // 2 = small gap, jumpable without ability
-    const floorMode = 1; // ← change this to test different modes
+    const floorMode = 2; // ← change this to test different modes
 
     // ── Floor layout based on floorMode ──────────────────────────
     if (floorMode === 0) {
         // Solid floor — nothing special, full floor across chunk
         k.add([
-            k.rect(CHUNK_W - WALL_T, 20),
-            k.pos(xOff + WALL_T, FLOOR_Y),
+            k.rect(CHUNK_W, 20),
+            k.pos(xOff, FLOOR_Y),
             k.color(...COL_FLOOR),
             k.area(),
             k.body({ isStatic: true }),
             k.z(0),
         ]);
-        k.add([k.rect(CHUNK_W - WALL_T, 2), k.pos(xOff + WALL_T, FLOOR_Y), k.color(...COL_TRIM), k.opacity(0.9), k.z(0)]);
+        k.add([k.rect(CHUNK_W , 2), k.pos(xOff, FLOOR_Y), k.color(...COL_TRIM), k.opacity(0.9), k.z(0)]);
 
     } else if (floorMode === 1) {
         // Large gap — flickering platform, freeze required
@@ -205,38 +205,38 @@ export function buildRandomChunk(k, xOff = 0, onDeath) {
 
     } else if (floorMode === 2) {
         // Small gap — jumpable, no platform needed
-        const SMALL_GAP_START = 320;
+        const SMALL_GAP_START = 402;
         const SMALL_GAP_WIDTH = 90; // narrow enough to jump across
 
         // Left section
         k.add([
             k.rect(SMALL_GAP_START, 20),
-            k.pos(xOff + WALL_T, FLOOR_Y),
+            k.pos(xOff, FLOOR_Y),
             k.color(...COL_FLOOR),
             k.area(),
             k.body({ isStatic: true }),
             k.z(0),
         ]);
-        k.add([k.rect(SMALL_GAP_START, 2), k.pos(xOff + WALL_T, FLOOR_Y), k.color(...COL_TRIM), k.opacity(0.9), k.z(0)]);
+        k.add([k.rect(SMALL_GAP_START, 2), k.pos(xOff, FLOOR_Y), k.color(...COL_TRIM), k.opacity(0.9), k.z(0)]);
 
         // Right section
         const smallRightStart = SMALL_GAP_START + SMALL_GAP_WIDTH;
-        const smallRightWidth = CHUNK_W - WALL_T - smallRightStart;
+        const smallRightWidth = CHUNK_W - smallRightStart;
         k.add([
             k.rect(smallRightWidth, 20),
-            k.pos(xOff + WALL_T + smallRightStart, FLOOR_Y),
+            k.pos(xOff + smallRightStart, FLOOR_Y),
             k.color(...COL_FLOOR),
             k.area(),
             k.body({ isStatic: true }),
             k.z(0),
         ]);
-        k.add([k.rect(smallRightWidth, 2), k.pos(xOff + WALL_T + smallRightStart, FLOOR_Y), k.color(...COL_TRIM), k.opacity(0.9), k.z(0)]);
+        k.add([k.rect(smallRightWidth, 2), k.pos(xOff + smallRightStart, FLOOR_Y), k.color(...COL_TRIM), k.opacity(0.9), k.z(0)]);
 
         // Gap darkness
         k.add([k.pos(0, 0), k.z(1), {
             draw() {
                 k.drawRect({
-                    pos: k.vec2(xOff + WALL_T + SMALL_GAP_START, FLOOR_Y),
+                    pos: k.vec2(xOff + SMALL_GAP_START, FLOOR_Y),
                     width: SMALL_GAP_WIDTH,
                     height: 200,
                     color: k.rgb(4, 3, 9),
