@@ -31,34 +31,37 @@ export function initLevel(k) {
 
         // ── Chunks ────────────────────────────────────────────────
         const c1 = buildChunk1(k, 0);
-        const cR2 = buildRandomChunk(k, CHUNK_W, () => k.go("level"));
-        const cR3 = buildRandomChunk(k, CHUNK_W * 2, () => k.go("level"));
-        const c20 = buildChunk20(k, CHUNK_W * 3, () => fadeToScene(k, "menuRoom"));
+        const cR2 = buildRandomChunk(k, CHUNK_W, () => k.go("level"), () => isaac);
+        const cR3 = buildRandomChunk(k, CHUNK_W * 2, () => k.go("level"), () => isaac);
+        const cR4 = buildRandomChunk(k, CHUNK_W * 3, () => k.go("level"), () => isaac);
+        const cR5 = buildRandomChunk(k, CHUNK_W * 4, () => k.go("level"), () => isaac);
+        const cR6 = buildRandomChunk(k, CHUNK_W * 5, () => k.go("level"), () => isaac);
+        const c20 = buildChunk20(k, CHUNK_W * 6, () => fadeToScene(k, "menuRoom"));
 
         // ── Floor ─────────────────────────────────────────────────
         // ── Floor (decorative background only) ───────────────────
         k.add([
-            k.rect(CHUNK_W * 4, FLOOR_H),
+            k.rect(CHUNK_W * 7, FLOOR_H),
             k.pos(0, FLOOR_Y),
             k.color(...COL_FLOOR),
             k.z(0),
         ]);
 
         // ── Floor trim (decorative only) ──────────────────────────────
-        k.add([k.rect(CHUNK_W * 4, 5), k.pos(0, FLOOR_Y), k.color(...COL_TRIM), k.opacity(0.9), k.z(0)]);
-        k.add([k.rect(CHUNK_W * 4, 1), k.pos(0, FLOOR_Y - 1), k.color(3, 2, 9), k.opacity(0.7), k.z(0)]);
+        k.add([k.rect(CHUNK_W * 7, 5), k.pos(0, FLOOR_Y), k.color(...COL_TRIM), k.opacity(0.9), k.z(0)]);
+        k.add([k.rect(CHUNK_W * 7, 1), k.pos(0, FLOOR_Y - 1), k.color(3, 2, 9), k.opacity(0.7), k.z(0)]);
 
         // ── Ceiling ───────────────────────────────────────────────
         k.add([
-            k.rect(CHUNK_W * 4, CEIL_H),
+            k.rect(CHUNK_W * 7, CEIL_H),
             k.pos(0, 0),
             k.color(...COL_WALL),
             k.area(),
             k.body({ isStatic: true }),
             k.z(0),
         ]);
-        k.add([k.rect(CHUNK_W * 4, 3), k.pos(0, CEIL_H), k.color(...COL_TRIM), k.opacity(0.85), k.z(0)]);
-        k.add([k.rect(CHUNK_W * 4, 1), k.pos(0, CEIL_H + 3), k.color(4, 3, 10), k.opacity(0.7), k.z(0)]);
+        k.add([k.rect(CHUNK_W * 7, 3), k.pos(0, CEIL_H), k.color(...COL_TRIM), k.opacity(0.85), k.z(0)]);
+        k.add([k.rect(CHUNK_W * 7, 1), k.pos(0, CEIL_H + 3), k.color(4, 3, 10), k.opacity(0.7), k.z(0)]);
 
         // ── Light bulb (chunk 1 side) ─────────────────────────────
         const BULB_X = CHUNK_W / 2;
@@ -103,6 +106,7 @@ export function initLevel(k) {
             k.area(),
             k.body(),
             k.z(10),
+            "issac",
         ]);
 
         const isaacHead = k.add([
@@ -132,6 +136,9 @@ export function initLevel(k) {
 
             cR2.checkDeath(isaac);
             cR3.checkDeath(isaac);
+            cR4.checkDeath(isaac);
+            cR5.checkDeath(isaac);
+            cR6.checkDeath(isaac);
 
             // Camera follows Isaac horizontally, locked vertically
             const targetX = isaac.pos.x + ISAAC_W / 2;
