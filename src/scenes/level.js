@@ -4,7 +4,7 @@ import { createSettingsOverlay } from "./settings.js";
 import { drawVignette, fadeToScene } from "./menuRoom.js";
 import { buildChunk1, CHUNK_W, WALL_T } from "../chunks/chunk1.js";
 import { buildChunk20 } from "../chunks/chunk20.js";
-import { buildRandomChunk } from "../chunks/chunkRandom.js";
+import { buildRandomChunk, resetFog } from "../chunks/chunkRandom.js";
 import { freeze } from "../state/freezeState.js";
 
 const W = 1280;
@@ -24,6 +24,8 @@ const COL_FLOOR = [16, 13, 28];
 const COL_TRIM = [22, 18, 40];
 
 export function initLevel(k) {
+    resetFog(); // ← add this as the very first line
+
     k.scene("level", () => {
 
         const settings = createSettingsOverlay(k);
@@ -36,7 +38,10 @@ export function initLevel(k) {
         const cR4 = buildRandomChunk(k, CHUNK_W * 3, () => k.go("level"), () => isaac);
         const cR5 = buildRandomChunk(k, CHUNK_W * 4, () => k.go("level"), () => isaac);
         const cR6 = buildRandomChunk(k, CHUNK_W * 5, () => k.go("level"), () => isaac);
-        const c20 = buildChunk20(k, CHUNK_W * 6, () => fadeToScene(k, "menuRoom"));
+        const c20 = buildChunk20(k, CHUNK_W * 6, () => {
+            resetFog();
+            fadeToScene(k, "menuRoom");
+        });
 
         // ── Floor ─────────────────────────────────────────────────
         // ── Floor (decorative background only) ───────────────────
@@ -212,7 +217,13 @@ export function initLevel(k) {
         // ── Single unified onKeyPress e ───────────────────────────
         k.onKeyPress("e", () => {
             if (settings.isOpen()) return;
-            if (nearDoor) { fadeToScene(k, "menuRoom"); return; }
+            if (nearDoor) {
+                resetFog();
+                freeze.active = false;
+                freeze.timer  = 0;
+                fadeToScene(k, "menuRoom");
+                return;
+            }
             if (nearDesk) { settings.open(); return; }
             // Freeze — only fires if not near anything interactable
             // After

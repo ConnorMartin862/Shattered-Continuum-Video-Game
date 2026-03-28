@@ -7,7 +7,10 @@ const FLOOR_Y = 578;
 const CEIL_H  = 48;
 const WALL_T  = 82;
 const H       = 720;
-const offset = 25
+const offset = 25;
+
+let fogAdded = false;  // ← add this here
+
 
 const COL_WALL  = [14, 12, 26];
 const COL_FLOOR = [16, 13, 28];
@@ -86,8 +89,206 @@ function addFlickerPlat(k, x, phaseOffset, cycleOverride, isDead) {
     }]);
 }
 
+// ── Helper: chunk lighting ────────────────────────────────────────
+// ── Helper: chunk lighting ────────────────────────────────────────
+function addLighting(k, xOff, hasFog, getIsDead) {
+    if (!hasFog) {
+        // Standard ceiling light
+        const bulbX = xOff + CHUNK_W / 2;
+        k.add([k.rect(6, 14), k.pos(bulbX - 3, CEIL_H - 14), k.color(38, 34, 55), k.z(0)]);
+        k.add([k.circle(4), k.pos(bulbX, CEIL_H + 1), k.color(168, 162, 225), k.opacity(0.65), k.z(0)]);
+        k.add([k.pos(0, 0), k.z(5), {
+            draw() {
+                for (let i = 28; i >= 0; i--) {
+                    const t = i / 28;
+                    k.drawCircle({
+                        pos:     k.vec2(bulbX, CEIL_H),
+                        radius:  420 * t,
+                        color:   k.rgb(155, 162, 215),
+                        opacity: Math.pow(1 - t, 2.2) * 0.2,
+                    });
+                }
+            },
+        }]);
+        return;
+    }
+ 
+    // Fog darkness
+    if (fogAdded) return;
+    fogAdded = true;
+ 
+    let fogTimer = 0;
+    k.add([k.pos(0, 0), k.z(78), k.fixed(), {
+        update() {
+            fogTimer += k.dt();
+        },
+        draw() {
+            if (getIsDead && getIsDead()) return;
+ 
+            const camX       = k.camPos().x;
+            const chunkLeft  = xOff - 1280 / 2;
+            const chunkRight = xOff + CHUNK_W + 1280 / 2;
+            if (camX < chunkLeft || camX > chunkRight) return;
+ 
+            // Base darkness layer
+            k.drawRect({ pos: k.vec2(0, 0), width: 1280, height: 720, color: k.rgb(4, 3, 9), opacity: 0.55 });
+ 
+            // Fog wisps
+            for (let i = 0; i < 5; i++) {
+                const speed   = 0.08 + i * 0.03;
+                const yPos    = 120 + i * 120;
+                const drift   = Math.sin(fogTimer * speed + i * 1.8) * 40;
+                const opacity = 0.06 + Math.sin(fogTimer * 0.4 + i) * 0.03;
+                k.drawRect({
+                    pos:     k.vec2(drift, yPos),
+                    width:   1280,
+                    height:  60,
+                    color:   k.rgb(8, 6, 16),
+                    opacity: Math.max(opacity, 0.03),
+                });
+            }
+ 
+            // Ambient light around Isaac
+            const screenCX = 1280 / 2;
+            const screenCY = 720 / 2;
+            for (let i = 8; i >= 0; i--) {
+                const t = i / 8;
+                k.drawCircle({
+                    pos:     k.vec2(screenCX, screenCY + 60),
+                    radius:  80 * t,
+                    color:   k.rgb(20, 16, 35),
+                    opacity: (1 - t) * 0.35,
+                });
+            }
+        },
+    }]);
+}
+
+function addSmiley(k, xOff, getIsaac, triggerDeath) {
+    const SPEED      = 185 * 1.5;
+    const RADIUS     = 22;
+    const SPAWN_X    = xOff;
+    const SPAWN_Y    = CAT_Y - 40;
+ 
+    let smileyX   = SPAWN_X;
+    let smileyY   = SPAWN_Y;
+    let spawned   = false;
+    let dead      = false;
+    let despawned = false;
+ 
+    let spawnTimer  = 0;
+    const SPAWN_DUR = 1.2;
+    let glitchX     = 0;
+    let glitchY     = 0;
+    let glitchTimer = 0;
+    let opacity     = 0;
+ 
+    k.add([k.pos(0, 0), k.z(22), {
+        update() {
+            if (dead || despawned) return;
+ 
+            const isaac = getIsaac();
+            if (!isaac) return;
+ 
+            if (!spawned && isaac.pos.x > xOff) spawned = true;
+            if (!spawned) return;
+ 
+            // Glitch spawn phase
+            if (spawnTimer < SPAWN_DUR) {
+                spawnTimer  += k.dt();
+                glitchTimer += k.dt();
+                opacity      = Math.min(spawnTimer / SPAWN_DUR, 1);
+ 
+                if (glitchTimer > 0.05) {
+                    glitchTimer = 0;
+                    const glitching = Math.random() < 0.7;
+                    glitchX = glitching ? (Math.random() - 0.5) * 18 : 0;
+                    glitchY = glitching ? (Math.random() - 0.5) * 12 : 0;
+                }
+                return;
+            }
+ 
+            // Fully spawned
+            glitchX = 0;
+            glitchY = 0;
+            opacity = 1;
+ 
+            if (freeze.active) return;
+ 
+            const dx   = isaac.pos.x + 13 - smileyX;
+            const dy   = isaac.pos.y + 29 - smileyY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+ 
+            if (dist > 0) {
+                smileyX += (dx / dist) * SPEED * k.dt();
+                smileyY += (dy / dist) * SPEED * k.dt();
+            }
+ 
+            // Death check
+            if (dist < RADIUS + 13) {
+                dead = true;
+                triggerDeath();
+                return;
+            }
+ 
+            // Despawn if off screen
+            const camX   = k.camPos().x;
+            const screenX = smileyX - (camX - 640);
+            if (screenX < -100 || screenX > 1380) despawned = true;
+        },
+ 
+        draw() {
+            if (despawned || !spawned) return;
+ 
+            const sx = smileyX + glitchX;
+            const sy = smileyY + glitchY;
+ 
+            // Chromatic aberration during spawn
+            if (spawnTimer < SPAWN_DUR) {
+                k.drawCircle({ pos: k.vec2(sx + 4, sy), radius: RADIUS, color: k.rgb(180, 0, 0),   opacity: opacity * 0.3 });
+                k.drawCircle({ pos: k.vec2(sx - 4, sy), radius: RADIUS, color: k.rgb(0, 0, 180),   opacity: opacity * 0.3 });
+            }
+ 
+            // Body
+            k.drawCircle({ pos: k.vec2(sx, sy), radius: RADIUS, color: k.rgb(0, 0, 0), opacity: opacity * 0.95 });
+ 
+            // Outline glow
+            for (let i = 3; i >= 0; i--) {
+                const t = i / 3;
+                k.drawCircle({ pos: k.vec2(sx, sy), radius: RADIUS + (3 - i) * 3, color: k.rgb(0, 0, 0), opacity: (1 - t) * 0.12 * opacity });
+            }
+ 
+            // Eyes
+            k.drawCircle({ pos: k.vec2(sx - 8, sy - 6), radius: 4, color: k.rgb(240, 240, 240), opacity: opacity });
+            k.drawCircle({ pos: k.vec2(sx + 8, sy - 6), radius: 4, color: k.rgb(240, 240, 240), opacity: opacity });
+ 
+            // Pupils
+            k.drawCircle({ pos: k.vec2(sx - 8, sy - 5), radius: 2, color: k.rgb(10, 8, 16), opacity: opacity });
+            k.drawCircle({ pos: k.vec2(sx + 8, sy - 5), radius: 2, color: k.rgb(10, 8, 16), opacity: opacity });
+ 
+            // Smile
+            const smilePoints = [[-10, 6], [-7, 9], [-3, 11], [0, 12], [3, 11], [7, 9], [10, 6]];
+            for (let i = 0; i < smilePoints.length - 1; i++) {
+                const [x1, y1] = smilePoints[i];
+                const [x2, y2] = smilePoints[i + 1];
+                k.drawLine({ p1: k.vec2(sx + x1, sy + y1), p2: k.vec2(sx + x2, sy + y2), width: 2, color: k.rgb(240, 240, 240), opacity: opacity });
+            }
+        },
+    }]);
+}
+
 export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
     let isDead = false;
+    
+    // ── Lighting roll ─────────────────────────────────────────────
+    const lightRoll = Math.floor(Math.random() * 21);
+    const hasFog    = lightRoll > 13;
+    const hasSmiley = lightRoll > 17; // only possible when hasFog is true
+ 
+    addLighting(k, xOff, hasFog, () => isDead);
+    if (hasSmiley) addSmiley(k, xOff, getIsaac, () => triggerDeath());
+
+
 
     // 0 = solid floor
     // 1 = large gap, one flickering platform
@@ -588,7 +789,6 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                             const isaacRight  = isaac.pos.x + 26;
                             const isaacTop    = isaac.pos.y;
                             const isaacBottom = isaac.pos.y + 58;
-                            console.log("board:", boardTop, boardBottom, "isaac:", isaacTop, isaacBottom);
 
 
                             const overlapping = boardLeft < isaacRight &&
@@ -881,6 +1081,7 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
         catwalk = { trigger() { spider.trigger(); } };
     }
 
+
     // ── Kill zone ─────────────────────────────────────────────────
     k.add([
         k.rect(CHUNK_W, 20),
@@ -940,4 +1141,8 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
             if (isaac.pos.y > FLOOR_Y + 80) triggerDeath();
         },
     };
+}
+
+export function resetFog() {
+    fogAdded = false;
 }
