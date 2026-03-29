@@ -6,6 +6,7 @@ import { buildChunk1, CHUNK_W, WALL_T } from "../chunks/chunk1.js";
 import { buildChunk20 } from "../chunks/chunk20.js";
 import { buildRandomChunk, resetFog } from "../chunks/chunkRandom.js";
 import { getCurrentLevel, completeLevel } from "../state/progress.js";
+import { loadChallengeSettings } from "./challengeOverlay.js";
 import { freeze } from "../state/freezeState.js";
 
 const W = 1280;
@@ -152,6 +153,19 @@ function getLevelConfig(levelNum) {
                 chunks: buildChunks(10, { floor: [6, 20], box: [10, 20], catwalk: [7, 20], light: [6, 20] }),
             };
 
+        case -2: // ─── Level Custom: You Decide ─────────────────────────────────
+            const ch = loadChallengeSettings();
+            return {
+                chunkCount: ch.chunkCount,
+                message: "",
+                chunks: buildChunks(ch.chunkCount, {
+                    floor:   [ch.floor.min,   ch.floor.max],
+                    box:     [ch.box.min,     ch.box.max],
+                    catwalk: [ch.catwalk.min, ch.catwalk.max],
+                    light:   [ch.light.min,   ch.light.max],
+                }),
+            };
+
         default: // ── Fully random (fallback for unbuilt levels) ───
             return {
                 chunkCount: 5,
@@ -190,7 +204,7 @@ export function initLevel(k) {
 
         const c20xOff = CHUNK_W * (config.chunkCount + 1);
         const c20 = buildChunk20(k, c20xOff, () => {
-            completeLevel();
+            if (levelNum >= 0) completeLevel();
             resetFog();
             fadeToScene(k, "menuRoom");
         });
@@ -281,6 +295,10 @@ export function initLevel(k) {
             if (isaac.isGrounded()) isaac.jump(420);
         });
 
+        // ── Spawn grace timer ─────────────────────────────────────
+        let spawnTimer = 0;
+        k.onUpdate(() => { spawnTimer += k.dt(); });
+
         // ── Isaac update ──────────────────────────────────────────
         isaac.onUpdate(() => {
             if (!settings.isOpen() && !bulletin.isOpen()) {
@@ -293,8 +311,16 @@ export function initLevel(k) {
 
             c20.checkCollect(isaac);
 
-            for (const chunk of randomChunks) {
-                chunk.checkDeath(isaac);
+            if (spawnTimer > 0.5) {
+                for (let i = 0; i < randomChunks.length; i++) {
+                    const chunk    = randomChunks[i];
+                    const chunkXOff = CHUNK_W * (i + 1);
+                    chunk.checkDeath(isaac);
+                    if (!chunk.destroyed && isaac.pos.x > chunkXOff + CHUNK_W * 2) {
+                        chunk.destroyChunk();
+                        chunk.destroyed = true;
+                    }
+                }
             }
 
             const targetX = isaac.pos.x + ISAAC_W / 2;

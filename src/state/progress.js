@@ -52,3 +52,12 @@ export function getChalkProgress() {
     const level = state.highestLevel;
     return Math.min(level + 2, 13); // +2 because "MY" visible from start
 }
+
+export function isGameComplete() {
+    return state.highestLevel >= 11;
+}
+
+export function setCurrentLevel(n) {
+    state.currentLevel = n;
+    save(state);
+}
