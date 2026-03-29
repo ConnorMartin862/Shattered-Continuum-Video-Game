@@ -15,7 +15,7 @@ const COL_FLOOR = [16, 13, 28];
 
 // Flickering platform dimensions
 const PLAT_W       = 80;
-const PLAT_H       = 10;
+const PLAT_H       = 20;
 const PLAT_Y       = FLOOR_Y - 8;
 const PLAT_CYCLE   = 1.0;
 const PLAT_VISIBLE = 0.5;
@@ -689,7 +689,7 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
         checkDeath(isaac) {
             if (isDead) return;
             if (catwalk && isaac.pos.x > xOff) catwalk.trigger();
-            if (isaac.pos.y > FLOOR_Y + 80) triggerDeath();
+            if (isaac.pos.y > FLOOR_Y + 20) triggerDeath();
         },
         destroyChunk() {
             for (const obj of destroyables) {

@@ -25,6 +25,8 @@ const COL_WALL = [14, 12, 26];
 const COL_FLOOR = [16, 13, 28];
 const COL_TRIM = [22, 18, 40];
 
+
+
 // ── Level configs ─────────────────────────────────────────────────
 // Each level defines how many random chunks it has and what roll
 // ranges to pass to buildRandomChunk for each chunk.
@@ -181,6 +183,9 @@ export function initLevel(k) {
     k.scene("level", () => {
 
         const settings = createSettingsOverlay(k);
+
+        let isDying = false
+
         const bulletin = (() => {
             let open = false;
             return {
@@ -199,7 +204,11 @@ export function initLevel(k) {
 
         const randomChunks = config.chunks.map((rollRanges, i) => {
             const xOff = CHUNK_W * (i + 1);
-            return buildRandomChunk(k, xOff, () => k.go("level"), () => isaac, rollRanges);
+            return buildRandomChunk(k, xOff, () => {
+                if (isDying) return;
+                isDying = true;
+                k.go("level");
+            }, () => isaac, rollRanges);
         });
 
         const c20xOff = CHUNK_W * (config.chunkCount + 1);
@@ -276,7 +285,7 @@ export function initLevel(k) {
             k.rect(ISAAC_W, ISAAC_H),
             k.pos(WALL_T + 70, FLOOR_Y - ISAAC_H - 2),
             k.color(50, 45, 68),
-            k.area(),
+            k.area({ shape: new k.Rect(k.vec2(3, 0), ISAAC_W - 6, ISAAC_H) }),
             k.body(),
             k.z(10),
             "issac",
@@ -323,6 +332,11 @@ export function initLevel(k) {
                 }
             }
 
+            if (isaac.pos.y > H) {
+                isaac.pos.x = WALL_T + 70;
+                isaac.pos.y = FLOOR_Y - ISAAC_H - 80;
+            }
+            
             const targetX = isaac.pos.x + ISAAC_W / 2;
             k.camPos(Math.max(W / 2, targetX), H / 2);
         });
@@ -398,12 +412,16 @@ export function initLevel(k) {
                 if (freeze.timer <= 0) {
                     freeze.timer = 0;
                     freeze.active = false;
-                    freeze.cooldown = freeze.cooldownDuration;
+                    freeze.cooldown = freeze.cooldownDuration; // full drain → cooldown
                 }
             } else if (freeze.cooldown > 0) {
                 freeze.cooldown -= k.dt();
+                if (freeze.cooldown <= 0) {
+                    freeze.cooldown = 0;
+                    freeze.timer = freeze.duration; // snap to full after cooldown
+                }
             } else {
-                // refill when cooldown is done
+                // partial use → gradual refill, no cooldown
                 freeze.timer = Math.min(freeze.timer + k.dt() * (freeze.duration / freeze.cooldownDuration), freeze.duration);
             }
         });
