@@ -4,6 +4,7 @@
 // Mouse tracking uses raw DOM events scaled to game coordinates.
 // k.mousePos() uses a different coordinate space than the draw() calls,
 // so we bypass it entirely for hit-testing.
+import { resetProgress } from "../state/progress.js";
 
 const W = 1280;
 const H = 720;
@@ -27,6 +28,12 @@ const QY = PY + 252;
 const YES_X = QX, YES_W = 88, YES_Y = QY, YES_H = QH;
 const NO_X = QX + 102, NO_W = 88, NO_Y = QY, NO_H = QH;
 
+// Reset Button
+const RW = 190, RH = 40;
+const RX = W / 2 - RW / 2;
+const RY = QY - 60; // sits above the quit button
+
+
 function inRect(mx, my, x, y, w, h) {
     return mx >= x && mx <= x + w && my >= y && my <= y + h;
 }
@@ -36,6 +43,11 @@ export function createSettingsOverlay(k) {
     let mouseX = 0;
     let mouseY = 0;
     let mouseBtn = false;   // true while left button is held
+
+    let resetHover   = false;
+    let confirmReset = false;
+    let yesResetHover = false;
+    let noResetHover  = false;
 
     function onMove(e) {
         const canvas = document.querySelector("canvas");
@@ -70,6 +82,21 @@ export function createSettingsOverlay(k) {
         // Quit button
         if (inRect(mouseX, mouseY, QX, QY, QW, QH)) {
             confirmQuit = true;
+        }
+
+        if (confirmReset) {
+            if (inRect(mouseX, mouseY, YES_X, RY, YES_W, RH)) {
+                resetProgress();
+                confirmReset = false;
+            }
+            if (inRect(mouseX, mouseY, NO_X, RY, NO_W, RH)) {
+                confirmReset = false;
+            }
+            return;
+        }
+
+        if (inRect(mouseX, mouseY, RX, RY, RW, RH)) {
+            confirmReset = true;
         }
     }
 
@@ -144,6 +171,17 @@ export function createSettingsOverlay(k) {
                     yesHover = inRect(mouseX, mouseY, YES_X, YES_Y, YES_W, YES_H);
                     noHover = inRect(mouseX, mouseY, NO_X, NO_Y, NO_W, NO_H);
                 }
+
+
+                if (!confirmReset) {
+                    resetHover = inRect(mouseX, mouseY, RX, RY, RW, RH);
+                    yesResetHover = false;
+                    noResetHover  = false;
+                } else {
+                    resetHover    = false;
+                    yesResetHover = inRect(mouseX, mouseY, YES_X, RY, YES_W, RH);
+                    noResetHover  = inRect(mouseX, mouseY, NO_X,  RY, NO_W,  RH);
+                }
             },
 
             draw() {
@@ -188,6 +226,27 @@ export function createSettingsOverlay(k) {
                 // Value
                 k.drawText({ text: Math.round(this.sensitivity * 100).toString(), pos: k.vec2(SLX + SLW + 16, SLY - 4), size: 13, font: "monospace", color: k.rgb(145, 132, 172), opacity: 0.8 });
 
+                // ── Reset button ───────────────────────────────────────────────
+                if (!confirmReset) {
+                    k.drawRect({ pos: k.vec2(RX - 1, RY - 1), width: RW + 2, height: RH + 2, color: k.rgb(28, 40, 70), opacity: resetHover ? 0.9 : 0.5 });
+                    k.drawRect({ pos: k.vec2(RX, RY), width: RW, height: RH, color: resetHover ? k.rgb(18, 28, 58) : k.rgb(12, 18, 32), opacity: 1 });
+                    k.drawText({ text: "RESET PROGRESS", pos: k.vec2(RX + RW / 2 - 72, RY + 13), size: 14, font: "monospace", color: resetHover ? k.rgb(85, 130, 225) : k.rgb(58, 90, 170), opacity: 1 });
+                } else {
+                    k.drawRect({ pos: k.vec2(RX - 1, RY - 1), width: RW + 2, height: RH + 2, color: k.rgb(28, 40, 70), opacity: 0.8 });
+                    k.drawRect({ pos: k.vec2(RX, RY), width: RW, height: RH, color: k.rgb(8, 12, 28), opacity: 1 });
+                    k.drawText({ text: "ARE YOU SURE?", pos: k.vec2(RX + RW / 2 - 66, RY + 13), size: 13, font: "monospace", color: k.rgb(75, 120, 210), opacity: 0.95 });
+
+                    // YES
+                    k.drawRect({ pos: k.vec2(YES_X - 1, RY - 1), width: YES_W + 2, height: RH + 2, color: k.rgb(28, 40, 70), opacity: yesResetHover ? 0.9 : 0.5 });
+                    k.drawRect({ pos: k.vec2(YES_X, RY), width: YES_W, height: RH, color: yesResetHover ? k.rgb(20, 32, 65) : k.rgb(10, 14, 32), opacity: 1 });
+                    k.drawText({ text: "YES", pos: k.vec2(YES_X + YES_W / 2 - 18, RY + 13), size: 13, font: "monospace", color: yesResetHover ? k.rgb(85, 140, 225) : k.rgb(60, 100, 175), opacity: 1 });
+
+                    // NO
+                    k.drawRect({ pos: k.vec2(NO_X - 1, RY - 1), width: NO_W + 2, height: RH + 2, color: k.rgb(40, 32, 58), opacity: noResetHover ? 0.9 : 0.5 });
+                    k.drawRect({ pos: k.vec2(NO_X, RY), width: NO_W, height: RH, color: noResetHover ? k.rgb(30, 24, 46) : k.rgb(16, 12, 28), opacity: 1 });
+                    k.drawText({ text: "NO", pos: k.vec2(NO_X + NO_W / 2 - 14, RY + 13), size: 13, font: "monospace", color: noResetHover ? k.rgb(185, 172, 218) : k.rgb(135, 122, 162), opacity: 1 });
+                }
+
                 // ── Quit button ────────────────────────────────────
                 if (!confirmQuit) {
                     k.drawRect({ pos: k.vec2(QX - 1, QY - 1), width: QW + 2, height: QH + 2, color: k.rgb(70, 28, 28), opacity: quitHover ? 0.9 : 0.5 });
@@ -211,6 +270,8 @@ export function createSettingsOverlay(k) {
 
                 // Close hint
                 k.drawText({ text: "[ ESC ]  close", pos: k.vec2(PX + PW / 2 - 58, PY + PH - 30), size: 12, font: "monospace", color: k.rgb(68, 58, 88), opacity: 0.55 });
+
+                
             },
         },
         "settingsOverlay",
@@ -227,12 +288,13 @@ export function createSettingsOverlay(k) {
     k.onKeyPress("escape", () => {
         if (!overlay.open) return;
         if (confirmQuit) { confirmQuit = false; return; }
+        if (confirmReset) { confirmReset = false; return; }
         overlay.open = false;
         save(overlay.sensitivity);
     });
 
     return {
-        open() { overlay.open = true; confirmQuit = false; },
+        open() { overlay.open = true; confirmQuit = false; confirmReset = false; },
         close() { overlay.open = false; save(overlay.sensitivity); },
         isOpen() { return overlay.open; },
         getSensitivity() { return overlay.sensitivity; },

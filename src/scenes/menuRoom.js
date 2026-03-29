@@ -13,6 +13,7 @@
 // ─────────────────────────────────────────────────────────────────
 
 import { createSettingsOverlay } from "./settings.js";
+import { getChalkProgress } from "../state/progress.js";
 
 const W = 1280;
 const H = 720;
@@ -83,6 +84,17 @@ export function initMenuRoom(k) {
         if (doorBottom < FLOOR_Y) {
             k.add([k.rect(WALL_T, FLOOR_Y - doorBottom), k.pos(W - WALL_T, doorBottom), k.color(...COL_WALL), k.z(0)]);
         }
+
+        // Full sentence broken into characters
+        const FULL_TEXT = "MY NAME IS ISSAC";
+        const chalkProgress = getChalkProgress();
+        const revealed = FULL_TEXT.slice(0, chalkProgress);
+
+        k.add([k.pos(0, 0), k.z(20), {
+            draw() {
+                drawChalkText(k, revealed, 310, CEIL_H + 90, 78);
+            },
+        }]);
 
         // ── Floor slab ───────────────────────────────────────────
         k.add([k.rect(W, FLOOR_H), k.pos(0, FLOOR_Y), k.color(...COL_FLOOR), k.z(0)]);

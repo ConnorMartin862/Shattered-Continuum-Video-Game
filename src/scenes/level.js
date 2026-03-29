@@ -5,6 +5,7 @@ import { drawVignette, fadeToScene } from "./menuRoom.js";
 import { buildChunk1, CHUNK_W, WALL_T } from "../chunks/chunk1.js";
 import { buildChunk20 } from "../chunks/chunk20.js";
 import { buildRandomChunk, resetFog } from "../chunks/chunkRandom.js";
+import { getCurrentLevel, completeLevel } from "../state/progress.js";
 import { freeze } from "../state/freezeState.js";
 
 const W = 1280;
@@ -23,50 +24,125 @@ const COL_WALL = [14, 12, 26];
 const COL_FLOOR = [16, 13, 28];
 const COL_TRIM = [22, 18, 40];
 
+// ── Level configs ─────────────────────────────────────────────────
+// Each level defines how many random chunks it has and what roll
+// ranges to pass to buildRandomChunk for each chunk.
+//
+// rollRanges per chunk: { floor, box, catwalk, light }
+// Each is a [min, max] tuple. Omitted = [0, 20] (fully random).
+//
+// Floor roll thresholds:
+//   0-3  → solid floor
+//   4-8  → small gap (no platform)
+//   9-15 → large gap + 1 flickering platform
+//   16-20 → extreme gap + 3 platforms
+//
+// Box roll thresholds:
+//   0-4  → no boxes
+//   5-9  → normal boxes
+//   10-14 → shaking boxes
+//   15-20 → ghost boxes
+//
+// Catwalk roll thresholds:
+//   0-5  → no catwalk
+//   6-13 → falling boards
+//   14-20 → spider entity
+//
+// Light roll thresholds:
+//   0-13 → normal ceiling light
+//   14-17 → fog
+//   18-20 → fog + smiley
+
+function getLevelConfig(levelNum) {
+    switch (levelNum) {
+
+        case 0: // ── Tutorial ──────────────────────────────────────
+            return {
+                chunkCount: 5,
+                message: "Hi #@$!%@, you have no idea where you are right now so let me help you a little here. You are going to walk to the other side of this room, but there are a couple of obstacles. So you are going to press [SPACE] to jump. And pressing [E] might help you a little too. Good luck!",
+                chunks: [
+                    // RC1: small gap only, no boxes, no catwalk, no fog
+                    { floor: [4, 8],  box: [0, 9], catwalk: [0, 0], light: [0, 0] },
+                    // RC2: solid floor only
+                    { floor: [0, 3],  box: [0, 9], catwalk: [0, 0], light: [0, 0] },
+                    // RC3: large gap + 1 platform (freeze required)
+                    { floor: [9, 15], box: [0, 9], catwalk: [0, 0], light: [0, 0] },
+                    // RC4: any of the three safe floor types
+                    { floor: [0, 15], box: [0, 9], catwalk: [0, 0], light: [0, 0] },
+                    // RC5: same as RC4
+                    { floor: [0, 15], box: [0, 9], catwalk: [0, 0], light: [0, 0] },
+                ],
+            };
+
+        default: // ── Fully random (fallback for unbuilt levels) ───
+            return {
+                chunkCount: 5,
+                message: "Random Level, enjoy.",
+                chunks: Array(5).fill({}), // empty = all [0,20] defaults
+            };
+    }
+}
+
 export function initLevel(k) {
-    resetFog(); // ← add this as the very first line
+    resetFog();
 
     k.scene("level", () => {
 
         const settings = createSettingsOverlay(k);
+        const bulletin = (() => {
+            let open = false;
+            return {
+                isOpen: () => open,
+                open()  { open = true; },
+                close() { open = false; },
+            };
+        })();
         k.setGravity(1100);
 
+        const levelNum = getCurrentLevel();
+        const config   = getLevelConfig(levelNum);
+
         // ── Chunks ────────────────────────────────────────────────
-        const c1 = buildChunk1(k, 0);
-        const cR2 = buildRandomChunk(k, CHUNK_W, () => k.go("level"), () => isaac);
-        const cR3 = buildRandomChunk(k, CHUNK_W * 2, () => k.go("level"), () => isaac);
-        const cR4 = buildRandomChunk(k, CHUNK_W * 3, () => k.go("level"), () => isaac);
-        const cR5 = buildRandomChunk(k, CHUNK_W * 4, () => k.go("level"), () => isaac);
-        const cR6 = buildRandomChunk(k, CHUNK_W * 5, () => k.go("level"), () => isaac);
-        const c20 = buildChunk20(k, CHUNK_W * 6, () => {
+        const c1  = buildChunk1(k, 0, config.message);
+
+        const randomChunks = config.chunks.map((rollRanges, i) => {
+            const xOff = CHUNK_W * (i + 1);
+            return buildRandomChunk(k, xOff, () => k.go("level"), () => isaac, rollRanges);
+        });
+
+        const c20xOff = CHUNK_W * (config.chunkCount + 1);
+        const c20 = buildChunk20(k, c20xOff, () => {
+            completeLevel();
             resetFog();
             fadeToScene(k, "menuRoom");
         });
 
-        // ── Floor ─────────────────────────────────────────────────
+        // Total width = chunk1 + N random chunks + chunk20
+        const totalChunks = config.chunkCount + 2;
+
         // ── Floor (decorative background only) ───────────────────
         k.add([
-            k.rect(CHUNK_W * 7, FLOOR_H),
+            k.rect(CHUNK_W * totalChunks, FLOOR_H),
             k.pos(0, FLOOR_Y),
             k.color(...COL_FLOOR),
             k.z(0),
         ]);
 
-        // ── Floor trim (decorative only) ──────────────────────────────
-        k.add([k.rect(CHUNK_W * 7, 5), k.pos(0, FLOOR_Y), k.color(...COL_TRIM), k.opacity(0.9), k.z(0)]);
-        k.add([k.rect(CHUNK_W * 7, 1), k.pos(0, FLOOR_Y - 1), k.color(3, 2, 9), k.opacity(0.7), k.z(0)]);
+        // ── Floor trim ────────────────────────────────────────────
+        k.add([k.rect(CHUNK_W * totalChunks, 5), k.pos(0, FLOOR_Y), k.color(...COL_TRIM), k.opacity(0.9), k.z(0)]);
+        k.add([k.rect(CHUNK_W * totalChunks, 1), k.pos(0, FLOOR_Y - 1), k.color(3, 2, 9), k.opacity(0.7), k.z(0)]);
 
         // ── Ceiling ───────────────────────────────────────────────
         k.add([
-            k.rect(CHUNK_W * 7, CEIL_H),
+            k.rect(CHUNK_W * totalChunks, CEIL_H),
             k.pos(0, 0),
             k.color(...COL_WALL),
             k.area(),
             k.body({ isStatic: true }),
             k.z(0),
         ]);
-        k.add([k.rect(CHUNK_W * 7, 3), k.pos(0, CEIL_H), k.color(...COL_TRIM), k.opacity(0.85), k.z(0)]);
-        k.add([k.rect(CHUNK_W * 7, 1), k.pos(0, CEIL_H + 3), k.color(4, 3, 10), k.opacity(0.7), k.z(0)]);
+        k.add([k.rect(CHUNK_W * totalChunks, 3), k.pos(0, CEIL_H), k.color(...COL_TRIM), k.opacity(0.85), k.z(0)]);
+        k.add([k.rect(CHUNK_W * totalChunks, 1), k.pos(0, CEIL_H + 3), k.color(4, 3, 10), k.opacity(0.7), k.z(0)]);
 
         // ── Light bulb (chunk 1 side) ─────────────────────────────
         const BULB_X = CHUNK_W / 2;
@@ -127,9 +203,9 @@ export function initLevel(k) {
             if (isaac.isGrounded()) isaac.jump(420);
         });
 
-        // ── Isaac update (movement + camera + shard check) ────────
+        // ── Isaac update ──────────────────────────────────────────
         isaac.onUpdate(() => {
-            if (!settings.isOpen()) {
+            if (!settings.isOpen() && !bulletin.isOpen()) {
                 if (k.isKeyDown("left") || k.isKeyDown("a")) isaac.move(-185, 0);
                 else if (k.isKeyDown("right") || k.isKeyDown("d")) isaac.move(185, 0);
             }
@@ -139,13 +215,10 @@ export function initLevel(k) {
 
             c20.checkCollect(isaac);
 
-            cR2.checkDeath(isaac);
-            cR3.checkDeath(isaac);
-            cR4.checkDeath(isaac);
-            cR5.checkDeath(isaac);
-            cR6.checkDeath(isaac);
+            for (const chunk of randomChunks) {
+                chunk.checkDeath(isaac);
+            }
 
-            // Camera follows Isaac horizontally, locked vertically
             const targetX = isaac.pos.x + ISAAC_W / 2;
             k.camPos(Math.max(W / 2, targetX), H / 2);
         });
@@ -188,21 +261,32 @@ export function initLevel(k) {
             { alpha: 0, draw() { k.drawText({ text: "[ E ]", pos: k.vec2(0, 0), size: 14, font: "monospace", color: k.rgb(195, 175, 230), opacity: this.alpha }); } },
         ]);
 
+        const bulletinPrompt = k.add([
+            k.pos(c1.bulletinPromptX, c1.bulletinPromptY),
+            k.z(91),
+            { alpha: 0, draw() { k.drawText({ text: "[ E ]", pos: k.vec2(0, 0), size: 14,
+            font: "monospace", color: k.rgb(195, 175, 230), opacity: this.alpha }); } },
+        ]);
+
         // ── Proximity state ───────────────────────────────────────
         let nearDoor = false;
         let nearDesk = false;
+        let nearBulletin = false;
+
 
         // ── Single unified onUpdate ───────────────────────────────
         k.onUpdate(() => {
             const isaacCX = isaac.pos.x + ISAAC_W / 2;
             nearDoor = Math.abs(isaacCX - c1.doorCX) < DOOR_PROXIMITY;
             nearDesk = Math.abs(isaacCX - c1.deskCX) < DESK_PROXIMITY;
+            nearBulletin = Math.abs(isaacCX - c1.bulletinCX) < c1.bulletinProximity;
 
             const rate = k.dt() * 5;
             const so = settings.isOpen();
             doorGlow.glowOpacity += ((nearDoor && !so ? 0.38 : 0.18) - doorGlow.glowOpacity) * rate;
             doorPrompt.alpha += ((nearDoor && !so ? 1 : 0) - doorPrompt.alpha) * rate;
             deskPrompt.alpha += ((nearDesk && !so ? 1 : 0) - deskPrompt.alpha) * rate;
+            bulletinPrompt.alpha += ((nearBulletin && !so && !bulletin.isOpen() ? 1 : 0) - bulletinPrompt.alpha) * rate;
 
             // Freeze countdown
             if (freeze.active) {
@@ -225,8 +309,7 @@ export function initLevel(k) {
                 return;
             }
             if (nearDesk) { settings.open(); return; }
-            // Freeze — only fires if not near anything interactable
-            // After
+            if (nearBulletin && !bulletin.isOpen()) { bulletin.open(); return; }
             if (freeze.active) {
                 freeze.active = false;
                 freeze.timer  = 0;
@@ -234,6 +317,11 @@ export function initLevel(k) {
                 freeze.active = true;
                 freeze.timer  = freeze.duration;
             }
+        });
+
+        // new:
+        k.onKeyPress((key) => {
+            if (bulletin.isOpen() && key !== "e") bulletin.close();
         });
 
         // ── Freeze UI bar ─────────────────────────────────────────
@@ -244,6 +332,31 @@ export function initLevel(k) {
                 k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: 400, height: 4, color: k.rgb(30, 20, 50), opacity: 0.8 });
                 k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: barW, height: 4, color: k.rgb(148, 100, 230), opacity: 0.95 });
                 k.drawText({ text: "TIME FROZEN", pos: k.vec2(W / 2 - 54, 65), size: 12, font: "monospace", color: k.rgb(180, 150, 230), opacity: 0.7 });
+            },
+        }]);
+
+        // ── Bulletin Object ─────────────────────────────────────────
+        k.add([k.pos(0, 0), k.z(200), k.fixed(), {
+            draw() {
+                if (!bulletin.isOpen()) return;
+                k.drawRect({ pos: k.vec2(0, 0), width: W, height: H,
+                            color: k.rgb(0, 0, 0), opacity: 0.6 });
+                const PW = 480, PH = 320;
+                const PX = W / 2 - PW / 2, PY = H / 2 - PH / 2;
+                k.drawRect({ pos: k.vec2(PX, PY), width: PW, height: PH,
+                            color: k.rgb(22, 18, 35), opacity: 0.97, radius: 4 });
+                k.drawRect({ pos: k.vec2(PX, PY), width: PW, height: 2,
+                            color: k.rgb(80, 60, 120), opacity: 0.8 });
+                k.drawRect({ pos: k.vec2(PX, PY + PH - 2), width: PW, height: 2,
+                            color: k.rgb(80, 60, 120), opacity: 0.8 });
+                k.drawText({ text: config.message,
+                            pos: k.vec2(PX + 36, PY + 36),
+                            size: 16, font: "monospace",
+                            color: k.rgb(195, 180, 220), width: PW - 72 });
+                k.drawText({ text: "[ any key to close ]",
+                            pos: k.vec2(PX + PW / 2 - 80, PY + PH - 32),
+                            size: 12, font: "monospace",
+                            color: k.rgb(100, 85, 130), opacity: 0.7 });
             },
         }]);
 

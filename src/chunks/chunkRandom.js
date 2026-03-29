@@ -9,8 +9,7 @@ const WALL_T  = 82;
 const H       = 720;
 const offset = 25;
 
-let fogAdded = false;  // ← add this here
-
+let fogAdded = false;
 
 const COL_WALL  = [14, 12, 26];
 const COL_FLOOR = [16, 13, 28];
@@ -24,9 +23,14 @@ const PLAT_CYCLE   = 1.0;
 const PLAT_VISIBLE = 0.5;
 
 // Catwalk
-const CAT_Y       = CEIL_H + 160;  // high enough Isaac can't reach
+const CAT_Y       = CEIL_H + 160;
 const CAT_BOARD_W = 200;
 const CAT_BOARD_H = 12;
+
+// ── Helper: roll within a [min, max] range (inclusive) ────────────
+function rollInRange([min, max]) {
+    return Math.floor(min + Math.random() * (max - min + 1));
+}
 
 // ── Helper: draw a floor section with collision ───────────────────
 function addFloor(k, x, w) {
@@ -90,10 +94,8 @@ function addFlickerPlat(k, x, phaseOffset, cycleOverride, isDead) {
 }
 
 // ── Helper: chunk lighting ────────────────────────────────────────
-// ── Helper: chunk lighting ────────────────────────────────────────
 function addLighting(k, xOff, hasFog, getIsDead) {
     if (!hasFog) {
-        // Standard ceiling light
         const bulbX = xOff + CHUNK_W / 2;
         k.add([k.rect(6, 14), k.pos(bulbX - 3, CEIL_H - 14), k.color(38, 34, 55), k.z(0)]);
         k.add([k.circle(4), k.pos(bulbX, CEIL_H + 1), k.color(168, 162, 225), k.opacity(0.65), k.z(0)]);
@@ -112,11 +114,10 @@ function addLighting(k, xOff, hasFog, getIsDead) {
         }]);
         return;
     }
- 
-    // Fog darkness
+
     if (fogAdded) return;
     fogAdded = true;
- 
+
     let fogTimer = 0;
     k.add([k.pos(0, 0), k.z(78), k.fixed(), {
         update() {
@@ -124,16 +125,14 @@ function addLighting(k, xOff, hasFog, getIsDead) {
         },
         draw() {
             if (getIsDead && getIsDead()) return;
- 
+
             const camX       = k.camPos().x;
             const chunkLeft  = xOff - 1280 / 2;
             const chunkRight = xOff + CHUNK_W + 1280 / 2;
             if (camX < chunkLeft || camX > chunkRight) return;
- 
-            // Base darkness layer
+
             k.drawRect({ pos: k.vec2(0, 0), width: 1280, height: 720, color: k.rgb(4, 3, 9), opacity: 0.55 });
- 
-            // Fog wisps
+
             for (let i = 0; i < 5; i++) {
                 const speed   = 0.08 + i * 0.03;
                 const yPos    = 120 + i * 120;
@@ -147,8 +146,7 @@ function addLighting(k, xOff, hasFog, getIsDead) {
                     opacity: Math.max(opacity, 0.03),
                 });
             }
- 
-            // Ambient light around Isaac
+
             const screenCX = 1280 / 2;
             const screenCY = 720 / 2;
             for (let i = 8; i >= 0; i--) {
@@ -169,36 +167,35 @@ function addSmiley(k, xOff, getIsaac, triggerDeath) {
     const RADIUS     = 22;
     const SPAWN_X    = xOff;
     const SPAWN_Y    = CAT_Y - 40;
- 
+
     let smileyX   = SPAWN_X;
     let smileyY   = SPAWN_Y;
     let spawned   = false;
     let dead      = false;
     let despawned = false;
- 
+
     let spawnTimer  = 0;
     const SPAWN_DUR = 1.2;
     let glitchX     = 0;
     let glitchY     = 0;
     let glitchTimer = 0;
     let opacity     = 0;
- 
+
     k.add([k.pos(0, 0), k.z(22), {
         update() {
             if (dead || despawned) return;
- 
+
             const isaac = getIsaac();
             if (!isaac) return;
- 
+
             if (!spawned && isaac.pos.x > xOff) spawned = true;
             if (!spawned) return;
- 
-            // Glitch spawn phase
+
             if (spawnTimer < SPAWN_DUR) {
                 spawnTimer  += k.dt();
                 glitchTimer += k.dt();
                 opacity      = Math.min(spawnTimer / SPAWN_DUR, 1);
- 
+
                 if (glitchTimer > 0.05) {
                     glitchTimer = 0;
                     const glitching = Math.random() < 0.7;
@@ -207,66 +204,56 @@ function addSmiley(k, xOff, getIsaac, triggerDeath) {
                 }
                 return;
             }
- 
-            // Fully spawned
+
             glitchX = 0;
             glitchY = 0;
             opacity = 1;
- 
+
             if (freeze.active) return;
- 
+
             const dx   = isaac.pos.x + 13 - smileyX;
             const dy   = isaac.pos.y + 29 - smileyY;
             const dist = Math.sqrt(dx * dx + dy * dy);
- 
+
             if (dist > 0) {
                 smileyX += (dx / dist) * SPEED * k.dt();
                 smileyY += (dy / dist) * SPEED * k.dt();
             }
- 
-            // Death check
+
             if (dist < RADIUS + 13) {
                 dead = true;
                 triggerDeath();
                 return;
             }
- 
-            // Despawn if off screen
+
             const camX   = k.camPos().x;
             const screenX = smileyX - (camX - 640);
             if (screenX < -100 || screenX > 1380) despawned = true;
         },
- 
+
         draw() {
             if (despawned || !spawned) return;
- 
+
             const sx = smileyX + glitchX;
             const sy = smileyY + glitchY;
- 
-            // Chromatic aberration during spawn
+
             if (spawnTimer < SPAWN_DUR) {
                 k.drawCircle({ pos: k.vec2(sx + 4, sy), radius: RADIUS, color: k.rgb(180, 0, 0),   opacity: opacity * 0.3 });
                 k.drawCircle({ pos: k.vec2(sx - 4, sy), radius: RADIUS, color: k.rgb(0, 0, 180),   opacity: opacity * 0.3 });
             }
- 
-            // Body
+
             k.drawCircle({ pos: k.vec2(sx, sy), radius: RADIUS, color: k.rgb(0, 0, 0), opacity: opacity * 0.95 });
- 
-            // Outline glow
+
             for (let i = 3; i >= 0; i--) {
                 const t = i / 3;
                 k.drawCircle({ pos: k.vec2(sx, sy), radius: RADIUS + (3 - i) * 3, color: k.rgb(0, 0, 0), opacity: (1 - t) * 0.12 * opacity });
             }
- 
-            // Eyes
+
             k.drawCircle({ pos: k.vec2(sx - 8, sy - 6), radius: 4, color: k.rgb(240, 240, 240), opacity: opacity });
             k.drawCircle({ pos: k.vec2(sx + 8, sy - 6), radius: 4, color: k.rgb(240, 240, 240), opacity: opacity });
- 
-            // Pupils
             k.drawCircle({ pos: k.vec2(sx - 8, sy - 5), radius: 2, color: k.rgb(10, 8, 16), opacity: opacity });
             k.drawCircle({ pos: k.vec2(sx + 8, sy - 5), radius: 2, color: k.rgb(10, 8, 16), opacity: opacity });
- 
-            // Smile
+
             const smilePoints = [[-10, 6], [-7, 9], [-3, 11], [0, 12], [3, 11], [7, 9], [10, 6]];
             for (let i = 0; i < smilePoints.length - 1; i++) {
                 const [x1, y1] = smilePoints[i];
@@ -277,66 +264,69 @@ function addSmiley(k, xOff, getIsaac, triggerDeath) {
     }]);
 }
 
-export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
+// ── buildRandomChunk ──────────────────────────────────────────────
+// rollRanges: optional object to bound each roll { floor, box, catwalk, light }
+// Each entry is a [min, max] tuple. Omitted entries default to [0, 20].
+export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}) {
     let isDead = false;
-    
+
+    const floorRange   = rollRanges.floor   ?? [0, 20];
+    const boxRange     = rollRanges.box     ?? [0, 20];
+    const catwalkRange = rollRanges.catwalk ?? [0, 20];
+    const lightRange   = rollRanges.light   ?? [0, 20];
+
     // ── Lighting roll ─────────────────────────────────────────────
-    const lightRoll = Math.floor(Math.random() * 21);
+    const lightRoll = rollInRange(lightRange);
     const hasFog    = lightRoll > 13;
-    const hasSmiley = lightRoll > 17; // only possible when hasFog is true
- 
+    const hasSmiley = lightRoll > 17;
+
     addLighting(k, xOff, hasFog, () => isDead);
     if (hasSmiley) addSmiley(k, xOff, getIsaac, () => triggerDeath());
 
-
-
+    // ── Floor roll ────────────────────────────────────────────────
     // 0 = solid floor
     // 1 = large gap, one flickering platform
     // 2 = small gap, jumpable
     // 3 = extreme gap, three flickering platforms
-    const floorRoll = Math.floor(Math.random() * 21); // 0-20 inclusive
+    const floorRoll = rollInRange(floorRange);
 
     let floorMode;
-    if (floorRoll <= 3)       floorMode = 0; // solid floor
-    else if (floorRoll <= 8)  floorMode = 2; // small gap
-    else if (floorRoll <= 15) floorMode = 1; // large gap, one platform
-    else                 floorMode = 3; // extreme gap, three platforms
+    if (floorRoll <= 3)       floorMode = 0;
+    else if (floorRoll <= 8)  floorMode = 2;
+    else if (floorRoll <= 15) floorMode = 1;
+    else                      floorMode = 3;
 
     if (floorMode === 0) {
-        // ── Solid floor ───────────────────────────────────────────
         addFloor(k, xOff, CHUNK_W);
 
     } else if (floorMode === 1) {
-        // ── Large gap — one flickering platform ───────────────────
         const GAP_START = 280;
         const GAP_WIDTH = 260;
         const GAP_END   = GAP_START + GAP_WIDTH;
 
-        addFloor(k, xOff,              GAP_START - offset);
-        addFloor(k, xOff + GAP_END + offset,    CHUNK_W - GAP_END - offset);
+        addFloor(k, xOff,                        GAP_START - offset);
+        addFloor(k, xOff + GAP_END + offset,     CHUNK_W - GAP_END - offset);
         addGapDarkness(k, xOff + GAP_START, GAP_WIDTH);
 
         const platX = xOff + GAP_START + (GAP_WIDTH / 2) - (PLAT_W / 2);
         addFlickerPlat(k, platX, 0, PLAT_CYCLE, () => isDead);
 
     } else if (floorMode === 2) {
-        // ── Small gap — jumpable ──────────────────────────────────
         const GAP_START = 380;
         const GAP_WIDTH = 90;
         const GAP_END   = GAP_START + GAP_WIDTH;
 
-        addFloor(k, xOff,              GAP_START - offset);
-        addFloor(k, xOff + GAP_END + offset,    CHUNK_W - GAP_END - offset);
+        addFloor(k, xOff,                        GAP_START - offset);
+        addFloor(k, xOff + GAP_END + offset,     CHUNK_W - GAP_END - offset);
         addGapDarkness(k, xOff + GAP_START, GAP_WIDTH);
 
     } else if (floorMode === 3) {
-        // ── Extreme gap — three flickering platforms ──────────────
         const GAP_START = 160;
         const GAP_WIDTH = 480;
         const GAP_END   = GAP_START + GAP_WIDTH;
 
-        addFloor(k, xOff,              GAP_START - offset);
-        addFloor(k, xOff + GAP_END + offset,    CHUNK_W - GAP_END - offset);
+        addFloor(k, xOff,                        GAP_START - offset);
+        addFloor(k, xOff + GAP_END + offset,     CHUNK_W - GAP_END - offset);
         addGapDarkness(k, xOff + GAP_START, GAP_WIDTH);
 
         const spacing = GAP_WIDTH / 4;
@@ -352,11 +342,9 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
         }
     }
 
-
-    // ── Helper: check if x position is over a gap ─────────────────────
+    // ── Helper: check if x position is over a gap ─────────────────
     function isOverGap(x, floorMode) {
-        if (floorMode === 0) return false; // solid floor, no gaps
-
+        if (floorMode === 0) return false;
         if (floorMode === 1) {
             const GAP_START = 280;
             const GAP_END   = GAP_START + 260;
@@ -383,7 +371,7 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
 
         const spawnedX = [];
 
-        // ── Regular boxes ─────────────────────────────────────────────
+        // ── Regular boxes ─────────────────────────────────────────
         for (let i = 0; i < numBoxes; i++) {
             let boxX = null;
 
@@ -422,7 +410,7 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
             }]);
         }
 
-        // ── Shaking boxes ─────────────────────────────────────────────
+        // ── Shaking boxes ─────────────────────────────────────────
         for (let i = 0; i < shakingBoxNum; i++) {
             let boxX = null;
 
@@ -443,34 +431,33 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
             const sBox = k.add([
                 k.rect(BOX_W, BOX_H),
                 k.pos(baseX, baseY),
-                k.color(28, 20, 40), // darker than regular boxes
+                k.color(28, 20, 40),
                 k.area(),
-                k.body(), // can also fall
+                k.body(),
                 k.z(8),
             ]);
 
             let shakeTimer   = 0;
             let cycleTimer   = 0;
-            const CYCLE      = 3.0; // seconds between shakes
+            const CYCLE      = 3.0;
             const SHAKE_DUR  = 1.0;
             let isShaking    = false;
             let shakeOffsetX = 0;
-            let falling      = false;  // ← add this
-            let fallVelY     = 0;      // ← add this
-            let currentBaseX = baseX;  
+            let falling      = false;
+            let fallVelY     = 0;
+            let currentBaseX = baseX;
 
             k.add([k.pos(0, 0), k.z(9), {
                 update() {
                     if (freeze.active) return;
 
                     if (!isShaking && !falling) {
-                        currentBaseX = sBox.pos.x; // continuously track current position
+                        currentBaseX = sBox.pos.x;
                         cycleTimer += k.dt();
                         if (cycleTimer >= CYCLE) {
                             isShaking  = true;
                             shakeTimer = 0;
                             cycleTimer = 0;
-                            // currentBaseX is already up to date
                         }
                     }
 
@@ -478,8 +465,6 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                         shakeTimer += k.dt();
                         sBox.pos.x = currentBaseX + Math.sin(shakeTimer * 35) * 5;
 
-
-                        // Push Isaac if touching
                         const isaac = getIsaac ? getIsaac() : null;
                         if (isaac) {
                             const isaacLeft   = isaac.pos.x;
@@ -499,20 +484,17 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                             if (touching) {
                                 const isaacCX = isaacLeft + 13;
                                 const boxCX   = boxLeft + BOX_W / 2;
-                                
-                                // Check if Isaac is on top of the box
-                                const isaacOnTop = isaacBottom <= boxTop + 8 && 
-                                                isaacCX > boxLeft && 
+
+                                const isaacOnTop = isaacBottom <= boxTop + 8 &&
+                                                isaacCX > boxLeft &&
                                                 isaacCX < boxRight;
 
                                 if (isaacOnTop) {
-                                    // Launch upward and to the side
                                     isaac.jump(600);
                                     const pushDir = isaacCX < boxCX ? -1 : 1;
                                     isaac.move(pushDir * 800, 0);
                                 } else {
                                     const pushDir = isaacCX < boxCX ? -1 : 1;
-                                    // Apply push over multiple frames so it works on ground too
                                     let pushTimer = 0;
                                     const pushEv = k.onUpdate(() => {
                                         pushTimer += k.dt();
@@ -524,7 +506,7 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                         }
 
                         if (shakeTimer >= SHAKE_DUR) {
-                            isShaking  = false;
+                            isShaking = false;
                             if (isOverGap(sBox.pos.x - xOff, floorMode)) {
                                 falling = true;
                             }
@@ -535,7 +517,6 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                 draw() {
                     const bx = sBox.pos.x;
                     const by = sBox.pos.y;
-                    // Darker box with warning tint when shaking
                     k.drawRect({ pos: k.vec2(bx, by), width: BOX_W, height: BOX_H, color: isShaking ? k.rgb(65, 28, 28) : k.rgb(35, 26, 48), opacity: 0.95 });
                     k.drawRect({ pos: k.vec2(bx + 4, by + 4), width: BOX_W - 8, height: BOX_H - 8, color: k.rgb(24, 18, 35), opacity: 0.85 });
                     k.drawRect({ pos: k.vec2(bx + BOX_W / 2 - 1, by + 4), width: 2, height: BOX_H - 8, color: k.rgb(48, 36, 62), opacity: 0.6 });
@@ -544,7 +525,7 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
             }]);
         }
 
-        // ── Ghost boxes ───────────────────────────────────────────────
+        // ── Ghost boxes ───────────────────────────────────────────
         for (let i = 0; i < ghostBoxNum; i++) {
             let boxX = null;
 
@@ -576,7 +557,7 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                 k.pos(absX, absY),
                 k.color(220, 215, 235),
                 k.area(),
-                k.body({ mass: 999 }), // ← dynamic but too heavy to push
+                k.body({ mass: 999 }),
                 k.z(8),
             ]);
 
@@ -591,13 +572,11 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                             ghostPhase = "glowing";
                             ghostTimer = 0;
                         }
-
                     } else if (ghostPhase === "glowing") {
                         if (ghostTimer >= GLOW_DUR) {
                             ghostPhase = "red";
                             ghostTimer = 0;
                         }
-
                     } else if (ghostPhase === "red") {
                         const isaac = getIsaac ? getIsaac() : null;
                         if (isaac) {
@@ -623,7 +602,6 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                                                 boxTop < isaacBottom &&
                                                 boxBottom > isaacTop;
 
-                                // Separate check for Isaac standing on top
                                 const onTop = isaacBottom >= boxTop - 4 &&
                                             isaacBottom <= boxTop + 8 &&
                                             isaacRight > boxLeft &&
@@ -648,7 +626,6 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                     if (ghostPhase === "white") {
                         k.drawRect({ pos: k.vec2(bx, by), width: BOX_W, height: BOX_H, color: k.rgb(220, 215, 235), opacity: 0.92 });
                         k.drawRect({ pos: k.vec2(bx + 4, by + 4), width: BOX_W - 8, height: BOX_H - 8, color: k.rgb(200, 195, 218), opacity: 0.7 });
-
                     } else if (ghostPhase === "glowing") {
                         const pulse = (Math.sin(ghostTimer * 4) + 1) / 2;
                         for (let g = 3; g >= 0; g--) {
@@ -664,7 +641,6 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                         }
                         k.drawRect({ pos: k.vec2(bx, by), width: BOX_W, height: BOX_H, color: k.rgb(220, 215, 235), opacity: 0.92 });
                         k.drawRect({ pos: k.vec2(bx + 4, by + 4), width: BOX_W - 8, height: BOX_H - 8, color: k.rgb(200, 195, 218), opacity: 0.7 });
-
                     } else if (ghostPhase === "red") {
                         for (let g = 3; g >= 0; g--) {
                             const spread = (g + 1) * 8;
@@ -692,34 +668,31 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
         }
     }
 
-    // ── Boxes ─────────────────────────────────────────────────────
-    // 0 = no Boxes
-    // 1 = normal Boxes
-    // 2 = shaking Boxes
-    // 3 = ghost Boxes
-    const boxRoll = Math.floor(Math.random() * 21); // 0-20 inclusive
+    // ── Box roll ──────────────────────────────────────────────────
+    // 0 = no boxes
+    // 1 = normal boxes
+    // 2 = shaking boxes
+    // 3 = ghost boxes
+    const boxRoll = rollInRange(boxRange);
 
     let boxMode;
-    if (boxRoll <= 4)       boxMode = 0; // no boxes
-    else if (boxRoll <= 9)  boxMode = 1; // normal boxes
-    else if (boxRoll <= 14) boxMode = 2; // shaking boxes
-    else                 boxMode = 3; // ghost boxes
+    if (boxRoll <= 4)       boxMode = 0;
+    else if (boxRoll <= 9)  boxMode = 1;
+    else if (boxRoll <= 14) boxMode = 2;
+    else                    boxMode = 3;
 
     if (boxMode === 1) {
         addBoxes(k, xOff, boxRoll - 4, 0, 0, floorMode);
-    }
-    else if (boxMode === 2) {
+    } else if (boxMode === 2) {
         addBoxes(k, xOff, 5 - (boxRoll - 9), boxRoll - 9, 0, floorMode);
-    }
-    else if (boxMode === 3) {
+    } else if (boxMode === 3) {
         addBoxes(k, xOff, 2, 3, (boxRoll - 14) / 2, floorMode);
     }
 
-    // ── Helper: catwalk with falling boards ───────────────────────────
+    // ── Catwalk helpers ───────────────────────────────────────────
     function addCatwalk(k, xOff, getIsDead, triggerDeath, getIsaac) {
-        let triggered = false; // timers haven't started yet
+        let triggered = false;
 
-        // 3 boards spaced evenly across chunk
         const boards = [
             { relX: CHUNK_W * 0.2 - CAT_BOARD_W / 2 },
             { relX: CHUNK_W * 0.5 - CAT_BOARD_W / 2 },
@@ -728,17 +701,16 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
 
         for (const board of boards) {
             const absX    = xOff + board.relX;
-            const endTime = 1 + Math.random() * 7; // 5-20 seconds
+            const endTime = 1 + Math.random() * 7;
 
-            let timer     = 0;
-            let phase     = "waiting"; // waiting → shaking → falling
+            let timer      = 0;
+            let phase      = "waiting";
             let shakeTimer = 0;
-            let velY      = 0;
-            let boardY    = CAT_Y;
-            let shakeX    = 0;
-            let destroyed = false;
+            let velY       = 0;
+            let boardY     = CAT_Y;
+            let shakeX     = 0;
+            let destroyed  = false;
 
-            // Solid board body
             const boardBody = k.add([
                 k.rect(CAT_BOARD_W, CAT_BOARD_H),
                 k.pos(absX, CAT_Y + 14),
@@ -748,12 +720,9 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                 k.z(8),
             ]);
 
-            // Visual + update on same object
             const boardVisual = k.add([k.pos(0, 0), k.z(9), {
                 update() {
                     if (destroyed || getIsDead()) return;
-
-                    // Wait for Isaac to enter chunk before starting timers
                     if (!triggered) return;
 
                     if (phase === "waiting") {
@@ -762,7 +731,6 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                             phase = "shaking";
                             shakeTimer = 0;
                         }
-
                     } else if (phase === "shaking") {
                         shakeTimer += k.dt();
                         shakeX = Math.sin(shakeTimer * 40) * 4;
@@ -773,12 +741,10 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                             shakeX = 0;
                             boardBody.pos.x = absX;
                         }
-
                     } else if (phase === "falling") {
-                        // Manual gravity — no Kaboom physics swap needed
                         velY += 980 * k.dt();
                         boardBody.pos.y += velY * k.dt();
-                        // Check if board overlaps Isaac using position math directly
+
                         const isaac = getIsaac();
                         if (isaac) {
                             const boardLeft   = boardBody.pos.x;
@@ -790,21 +756,16 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                             const isaacTop    = isaac.pos.y;
                             const isaacBottom = isaac.pos.y + 58;
 
-
                             const overlapping = boardLeft < isaacRight &&
                                             boardRight > isaacLeft &&
                                             boardTop < isaacBottom &&
                                             boardBottom > isaacTop;
 
-                            if (overlapping) {
-                                console.log("board hit isaac");
-                                triggerDeath();
-                            }
+                            if (overlapping) triggerDeath();
                         }
 
-                        // Destroy if fallen off screen
                         if (boardBody.pos.y > H + 100) {
-                            boardVisual.destroy()
+                            boardVisual.destroy();
                             boardBody.destroy();
                             destroyed = true;
                         }
@@ -816,11 +777,8 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                     const bx = boardBody.pos.x;
                     const by = boardBody.pos.y;
 
-                    // Board surface
                     k.drawRect({ pos: k.vec2(bx, by), width: CAT_BOARD_W, height: CAT_BOARD_H, color: k.rgb(42, 34, 62), opacity: 0.95 });
-                    // Top highlight
                     k.drawRect({ pos: k.vec2(bx + 2, by), width: CAT_BOARD_W - 4, height: 2, color: k.rgb(68, 54, 95), opacity: 0.7 });
-                    // Shake warning — red tint during shake phase
                     if (phase === "shaking") {
                         k.drawRect({ pos: k.vec2(bx, by), width: CAT_BOARD_W, height: CAT_BOARD_H, color: k.rgb(180, 40, 40), opacity: 0.3 });
                     }
@@ -828,62 +786,29 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
             }]);
         }
 
-        // Return trigger function — called from buildRandomChunk when Isaac enters
-        return {
-            trigger() { triggered = true; },
-        };
+        return { trigger() { triggered = true; } };
     }
 
-    // ── Helper: catwalk railing visual ───────────────────────────────
     function addCatwalkRailing(k, xOff) {
         k.add([k.pos(0, 0), k.z(7), {
             draw() {
-                // Main horizontal rail
-                k.drawRect({
-                    pos:     k.vec2(xOff, CAT_Y),
-                    width:   CHUNK_W,
-                    height:  3,
-                    color:   k.rgb(48, 38, 68),
-                    opacity: 0.85,
-                });
-                // Rail highlight
-                k.drawRect({
-                    pos:     k.vec2(xOff, CAT_Y - 14),
-                    width:   CHUNK_W,
-                    height:  1,
-                    color:   k.rgb(72, 58, 98),
-                    opacity: 0.5,
-                });
-                // Vertical support posts every ~150px
+                k.drawRect({ pos: k.vec2(xOff, CAT_Y), width: CHUNK_W, height: 3, color: k.rgb(48, 38, 68), opacity: 0.85 });
+                k.drawRect({ pos: k.vec2(xOff, CAT_Y - 14), width: CHUNK_W, height: 1, color: k.rgb(72, 58, 98), opacity: 0.5 });
                 for (let px = xOff; px < xOff + CHUNK_W; px += 150) {
-                    k.drawRect({
-                        pos:     k.vec2(px, CAT_Y - 14),
-                        width:   4,
-                        height:  CAT_BOARD_H + 28,
-                        color:   k.rgb(42, 32, 60),
-                        opacity: 0.75,
-                    });
+                    k.drawRect({ pos: k.vec2(px, CAT_Y - 14), width: 4, height: CAT_BOARD_H + 28, color: k.rgb(42, 32, 60), opacity: 0.75 });
                 }
             },
         }]);
     }
 
-    // ── Helper: catwalk spider entity ─────────────────────────────────
     function addCatwalkSpider(k, xOff, getIsaac, triggerDeath) {
-        // Spider state
-        // Phases: "top-right" (crawling left→right on top)
-        //         "loop-right" (curling around right edge)
-        //         "bottom-left" (crawling right→left underneath)
-        //         "loop-left" (curling around left edge)
-        //         "dropping" (attack drop)
-
-        const TOP_Y       = CAT_Y - 14;         // on top of railing
-        const BOTTOM_Y    = CAT_Y + CAT_BOARD_H + 10; // underneath boards
-        const LEFT_X      = xOff;
-        const RIGHT_X     = xOff + CHUNK_W - 20;
-        const CRAWL_SPEED = 120;
-        const DROP_SPEED  = 1500;
-        const DETECT_RANGE = 60; // how close Isaac's x needs to be to spider x
+        const TOP_Y        = CAT_Y - 14;
+        const BOTTOM_Y     = CAT_Y + CAT_BOARD_H + 10;
+        const LEFT_X       = xOff;
+        const RIGHT_X      = xOff + CHUNK_W - 20;
+        const CRAWL_SPEED  = 120;
+        const DROP_SPEED   = 1500;
+        const DETECT_RANGE = 60;
 
         let spiderX    = xOff + CHUNK_W / 2;
         let spiderY    = BOTTOM_Y;
@@ -899,10 +824,8 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
             update() {
                 if (dead) return;
                 if (!triggered) return;
-                if (freeze.active) return;  // ← add this line
+                if (freeze.active) return;
 
-
-                // Skitter offset — updates every 0.06s
                 skitterTimer += k.dt();
                 if (skitterTimer > 0.06) {
                     skitterTimer = 0;
@@ -918,29 +841,21 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                         phase = "loop-right";
                         loopTimer = 0;
                     }
-
                 } else if (phase === "loop-right") {
-                    // Animate curling around the right edge over 0.4s
                     loopTimer += k.dt();
                     const t = Math.min(loopTimer / 0.4, 1);
                     spiderY = TOP_Y + (BOTTOM_Y - TOP_Y) * t;
-                    if (loopTimer >= 0.4) {
-                        phase = "bottom-left";
-                    }
-
+                    if (loopTimer >= 0.4) phase = "bottom-left";
                 } else if (phase === "bottom-left") {
                     spiderX -= CRAWL_SPEED * k.dt();
                     spiderY = BOTTOM_Y;
 
-                    // Attack detection — only on underside pass
                     const isaac = getIsaac();
                     if (isaac) {
-                        const inRange  = isaac.pos.x + 13 > spiderX - 20 && 
-                                        isaac.pos.x + 13 < spiderX + 20;
+                        const inRange    = isaac.pos.x + 13 > spiderX - 20 &&
+                                          isaac.pos.x + 13 < spiderX + 20;
                         const isaacBelow = isaac.pos.y > CAT_Y;
-                        if (inRange && isaacBelow) {
-                            phase = "dropping";
-                        }
+                        if (inRange && isaacBelow) phase = "dropping";
                     }
 
                     if (spiderX <= LEFT_X) {
@@ -948,7 +863,6 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                         phase = "loop-left";
                         loopTimer = 0;
                     }
-
                 } else if (phase === "loop-left") {
                     loopTimer += k.dt();
                     const t = Math.min(loopTimer / 0.4, 1);
@@ -957,7 +871,6 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                         phase = "top-right";
                         spiderX = LEFT_X;
                     }
-
                 } else if (phase === "dropping") {
                     spiderY += DROP_SPEED * k.dt();
 
@@ -977,10 +890,7 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                                     spiderTop < isaacBottom &&
                                     spiderBottom > isaacTop;
 
-                        if (hit) {
-                            dead = true;
-                            triggerDeath();
-                        }
+                        if (hit) { dead = true; triggerDeath(); }
                     }
 
                     if (spiderY > FLOOR_Y + 50) {
@@ -996,72 +906,42 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
                 const sx = spiderX + skitterOX;
                 const sy = spiderY + skitterOY;
 
-                // Body — was 16x16, now 28x28
-                k.drawRect({
-                    pos:     k.vec2(sx - 14, sy - 14),
-                    width:   28,
-                    height:  28,
-                    color:   k.rgb(28, 22, 40),
-                    opacity: 0.95,
-                    radius:  5,
-                });
-
-                // Eyes
+                k.drawRect({ pos: k.vec2(sx - 14, sy - 14), width: 28, height: 28, color: k.rgb(28, 22, 40), opacity: 0.95, radius: 5 });
                 k.drawRect({ pos: k.vec2(sx - 7, sy - 6), width: 5, height: 5, color: k.rgb(180, 40, 40), opacity: 1 });
                 k.drawRect({ pos: k.vec2(sx + 3, sy - 6), width: 5, height: 5, color: k.rgb(180, 40, 40), opacity: 1 });
 
-                // Legs — wider spread
                 const legPairs = [[-20, -8], [-18, 0], [-18, 8], [-20, 16],
-                                [ 20, -8], [ 18, 0], [ 18, 8], [ 20, 16]];
+                                  [ 20, -8], [ 18, 0], [ 18, 8], [ 20, 16]];
                 for (const [lx, ly] of legPairs) {
-                    k.drawRect({
-                        pos:    k.vec2(sx + (lx > 0 ? 14 : lx), sy + ly),
-                        width:  Math.abs(lx) - 14,
-                        height: 3,
-                        color:  k.rgb(40, 30, 55),
-                        opacity: 0.85,
-                    });
+                    k.drawRect({ pos: k.vec2(sx + (lx > 0 ? 14 : lx), sy + ly), width: Math.abs(lx) - 14, height: 3, color: k.rgb(40, 30, 55), opacity: 0.85 });
                 }
 
-                // Drop warning — red glow below spider when on underside
                 if (phase === "bottom-left") {
                     const isaac = getIsaac();
                     if (isaac && Math.abs(isaac.pos.x - spiderX) < DETECT_RANGE && isaac.pos.y > CAT_Y) {
-                        k.drawRect({
-                            pos:     k.vec2(sx - 12, sy + 8),
-                            width:   24,
-                            height:  FLOOR_Y - sy,
-                            color:   k.rgb(180, 40, 40),
-                            opacity: 0.06,
-                        });
+                        k.drawRect({ pos: k.vec2(sx - 12, sy + 8), width: 24, height: FLOOR_Y - sy, color: k.rgb(180, 40, 40), opacity: 0.06 });
                     }
                 }
             },
         }]);
 
-        return {
-            trigger() { triggered = true; },
-        };
+        return { trigger() { triggered = true; } };
     }
 
-    // ── Catwalk value ─────────────────────────────────────────────
-    // 0 = no catwalk
-    // 1 = falling boards
-    // 2 = spider entity
-    const catwalkRoll = Math.floor(Math.random() * 21); // 0-20 inclusive
+    // ── Catwalk roll ──────────────────────────────────────────────
+    const catwalkRoll = rollInRange(catwalkRange);
 
     let catwalkMode;
-    if (catwalkRoll <= 5)       catwalkMode = 0; // no catwalk
-    else if (catwalkRoll <= 13)  catwalkMode = 1; // falling boards
-    else                 catwalkMode = 2; // spider entity
+    if (catwalkRoll <= 5)       catwalkMode = 0;
+    else if (catwalkRoll <= 13) catwalkMode = 1;
+    else                        catwalkMode = 2;
 
     let catwalk = null;
     if (catwalkMode === 1) {
         catwalk = addCatwalk(k, xOff, () => isDead, () => triggerDeath(), getIsaac);
-        addCatwalkRailing(k, xOff)
+        addCatwalkRailing(k, xOff);
     } else if (catwalkMode === 2) {
         addCatwalkRailing(k, xOff);
-        // Add solid boards — no falling, just platforms
         const boards = [
             CHUNK_W * 0.2 - CAT_BOARD_W / 2,
             CHUNK_W * 0.5 - CAT_BOARD_W / 2,
@@ -1080,7 +960,6 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
         const spider = addCatwalkSpider(k, xOff, getIsaac, () => triggerDeath());
         catwalk = { trigger() { spider.trigger(); } };
     }
-
 
     // ── Kill zone ─────────────────────────────────────────────────
     k.add([
@@ -1133,7 +1012,6 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac) {
         checkDeath(isaac) {
             if (isDead) return;
 
-            // Trigger catwalk timers when Isaac enters chunk
             if (catwalk && isaac.pos.x > xOff) {
                 catwalk.trigger();
             }
