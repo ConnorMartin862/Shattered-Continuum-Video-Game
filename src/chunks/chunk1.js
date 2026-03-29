@@ -22,7 +22,7 @@ const DESK_W     = 112;
 const DESK_TOP_Y = FLOOR_Y - 52;
 
 // Bulletin board
-const BULLETIN_REL_X    = CHUNK_W - 120;
+const BULLETIN_REL_X    = CHUNK_W - 200;
 const BULLETIN_W        = 72;
 const BULLETIN_H        = 90;
 const BULLETIN_Y        = FLOOR_Y - 180;

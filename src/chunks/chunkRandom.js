@@ -35,7 +35,7 @@ function rollInRange([min, max]) {
 // ── Helper: draw a floor section with collision ───────────────────
 function addFloor(k, x, w) {
     k.add([k.rect(w, 20), k.pos(x, FLOOR_Y), k.color(...COL_FLOOR), k.area(), k.body({ isStatic: true }), k.z(0)]);
-    k.add([k.rect(w, 2),  k.pos(x, FLOOR_Y), k.color(...COL_TRIM),  k.opacity(0.9), k.z(0)]);
+    k.add([k.rect(w, 2),  k.pos(x, FLOOR_Y), k.color(80, 65, 110),  k.opacity(1), k.z(79)]);
 }
 
 // ── Helper: draw gap darkness ─────────────────────────────────────
@@ -1012,7 +1012,8 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
                 if (timer >= 0.3) {
                     ev.cancel();
                     freeze.active = false;
-                    freeze.timer  = 0;
+                    freeze.timer  = freeze.duration;
+                    freeze.cooldown = 0;  
                     if (onDeath) onDeath();
                     else k.go("level");
                 }

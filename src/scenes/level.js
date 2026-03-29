@@ -370,9 +370,15 @@ export function initLevel(k) {
             if (freeze.active) {
                 freeze.timer -= k.dt();
                 if (freeze.timer <= 0) {
-                    freeze.active = false;
                     freeze.timer = 0;
+                    freeze.active = false;
+                    freeze.cooldown = freeze.cooldownDuration;
                 }
+            } else if (freeze.cooldown > 0) {
+                freeze.cooldown -= k.dt();
+            } else {
+                // refill when cooldown is done
+                freeze.timer = Math.min(freeze.timer + k.dt() * (freeze.duration / freeze.cooldownDuration), freeze.duration);
             }
         });
 
@@ -382,7 +388,8 @@ export function initLevel(k) {
             if (nearDoor) {
                 resetFog();
                 freeze.active = false;
-                freeze.timer  = 0;
+                freeze.timer  = freeze.duration;
+                freeze.cooldown = 0;  
                 fadeToScene(k, "menuRoom");
                 return;
             }
@@ -390,10 +397,8 @@ export function initLevel(k) {
             if (nearBulletin && !bulletin.isOpen()) { bulletin.open(); return; }
             if (freeze.active) {
                 freeze.active = false;
-                freeze.timer  = 0;
-            } else {
+            } else if (freeze.cooldown <= 0 && freeze.timer > 0) {
                 freeze.active = true;
-                freeze.timer  = freeze.duration;
             }
         });
 
@@ -405,13 +410,21 @@ export function initLevel(k) {
         // ── Freeze UI bar ─────────────────────────────────────────
         k.add([k.pos(0, 0), k.z(95), k.fixed(), {
             draw() {
-                if (!freeze.active) return;
-                const barW = (freeze.timer / freeze.duration) * 400;
-                k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: 400, height: 4, color: k.rgb(30, 20, 50), opacity: 0.8 });
-                k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: barW, height: 4, color: k.rgb(148, 100, 230), opacity: 0.95 });
-                k.drawText({ text: "TIME FROZEN", pos: k.vec2(W / 2 - 54, 65), size: 12, font: "monospace", color: k.rgb(180, 150, 230), opacity: 0.7 });
+                if (freeze.active) {
+                    const barW = (freeze.timer / freeze.duration) * 400;
+                    k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: 400, height: 4, color: k.rgb(30, 20, 50), opacity: 0.8 });
+                    k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: barW, height: 4, color: k.rgb(148, 100, 230), opacity: 0.95 });
+                    k.drawText({ text: "TIME FROZEN", pos: k.vec2(W / 2 - 54, 65), size: 12, font: "monospace", color: k.rgb(180, 150, 230), opacity: 0.7 });
+                } else if (freeze.cooldown > 0) {
+                    const fillW = (1 - freeze.cooldown / freeze.cooldownDuration) * 400;
+                    k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: 400, height: 4, color: k.rgb(30, 20, 50), opacity: 0.8 });
+                    k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: fillW, height: 4, color: k.rgb(80, 50, 130), opacity: 0.95 });
+                    k.drawText({ text: "RECHARGING", pos: k.vec2(W / 2 - 44, 65), size: 12, font: "monospace", color: k.rgb(120, 90, 170), opacity: 0.7 });
+                }
             },
         }]);
+
+        
 
         // ── Bulletin Object ─────────────────────────────────────────
         k.add([k.pos(0, 0), k.z(200), k.fixed(), {
