@@ -313,7 +313,7 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
 
     } else if (floorMode === 2) {
         const GAP_START = 380;
-        const GAP_WIDTH = 90;
+        const GAP_WIDTH = 70;
         const GAP_END   = GAP_START + GAP_WIDTH;
 
         addFloor(k, xOff,                        GAP_START - offset);
@@ -331,9 +331,9 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
 
         const spacing = GAP_WIDTH / 4;
         const platDefs = [
-            { offset: spacing * 1, phase: 0,    cycle: 1.6 },
-            { offset: spacing * 2, phase: 0.33, cycle: 1.0 },
-            { offset: spacing * 3, phase: 0.66, cycle: 1.0 },
+            { offset: spacing * 1, phase: 0,    cycle: 2.0 },
+            { offset: spacing * 2, phase: 0.163, cycle: 2.0 },
+            { offset: spacing * 3, phase: 0.33, cycle: 2.0 },
         ];
 
         for (const pd of platDefs) {

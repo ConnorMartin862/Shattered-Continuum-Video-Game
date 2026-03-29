@@ -88,7 +88,12 @@ export function initMenuRoom(k) {
         // Full sentence broken into characters
         const FULL_TEXT = "MY NAME IS ISAAC";
         const chalkProgress = getChalkProgress();
-        const revealed = FULL_TEXT.split('').filter(c => c !== ' ').slice(0, chalkProgress).join('');
+        let letterCount = 0;
+        const revealed = FULL_TEXT.split('').map(c => {
+            if (c === ' ') return ' ';
+            letterCount++;
+            return letterCount <= chalkProgress ? c : ' ';
+        }).join('');
 
         k.add([k.pos(0, 0), k.z(20), {
             draw() {
