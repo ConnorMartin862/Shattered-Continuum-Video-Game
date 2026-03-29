@@ -933,8 +933,9 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
 
     let catwalkMode;
     if (catwalkRoll <= 5)       catwalkMode = 0;
-    else if (catwalkRoll <= 13) catwalkMode = 1;
-    else                        catwalkMode = 2;
+    else if (catwalkRoll <= 11) catwalkMode = 1;
+    else if (catwalkRoll <= 16) catwalkMode = 2;
+    else                        catwalkMode = 3;
 
     let catwalk = null;
     if (catwalkMode === 1) {
@@ -959,6 +960,17 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
         }
         const spider = addCatwalkSpider(k, xOff, getIsaac, () => triggerDeath());
         catwalk = { trigger() { spider.trigger(); } };
+    }
+    else if (catwalkMode === 3) {
+        const boards = addCatwalk(k, xOff, () => isDead, () => triggerDeath(), getIsaac);
+        addCatwalkRailing(k, xOff);
+        const spider = addCatwalkSpider(k, xOff, getIsaac, () => triggerDeath());
+        catwalk = {
+            trigger() {
+                boards.trigger();
+                spider.trigger();
+            }
+        };
     }
 
     // ── Kill zone ─────────────────────────────────────────────────

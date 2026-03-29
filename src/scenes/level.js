@@ -45,13 +45,21 @@ const COL_TRIM = [22, 18, 40];
 //
 // Catwalk roll thresholds:
 //   0-5  → no catwalk
-//   6-13 → falling boards
-//   14-20 → spider entity
+//   6-11 → falling boards
+//   12-16 → spider entity
+//   17-20 → spider + falling boards
 //
 // Light roll thresholds:
 //   0-13 → normal ceiling light
 //   14-17 → fog
 //   18-20 → fog + smiley
+
+function buildChunks(count, defaults, overrides = []) {
+    return Array.from({ length: count }, (_, i) => ({
+        ...defaults,
+        ...overrides[i],
+    }));
+}
 
 function getLevelConfig(levelNum) {
     switch (levelNum) {
@@ -72,6 +80,76 @@ function getLevelConfig(levelNum) {
                     // RC5: same as RC4
                     { floor: [0, 15], box: [0, 9], catwalk: [0, 0], light: [0, 0] },
                 ],
+            };
+
+        case 1: // ─── Level 1: Introductions ──────────────────────────────────
+            return {
+                chunkCount: 5,
+                message: "Consider this an introduction to every other aspect of this room. For some reason the falling floorboards don't listen to your ability, IDK why.",
+                chunks: buildChunks(5, { floor: [0, 16], box: [0, 11], catwalk: [0, 11], light: [0, 13] }),
+            };
+
+        case 2: // ─── Level 2: Up The Learning Curve ──────────────────────────
+            return {
+                chunkCount: 6,
+                message: "Goood! You're learning, watch out for those shaking boxes, I hear they can shove you across the entire room!",
+                chunks: buildChunks(6, { floor: [1, 17], box: [3, 14], catwalk: [0, 11], light: [0, 13] }),
+            };
+        
+        case 3: // ─── Level 3: Box Hungry ────────────────────────────────────
+            return {
+                chunkCount: 6,
+                message: "If the shaking boxes weren't enough, the ghost boxes will get you. But beware, if you see them glow, RUN!",
+                chunks: buildChunks(6, { floor: [0, 16], box: [6, 18], catwalk: [0, 9], light: [0, 13] }),
+            };
+
+        case 4: // ─── Level 4: Lights Out ────────────────────────────────────
+            return {
+                chunkCount: 6,
+                message: "So we have been behind on the electric bill, no pressure though. You Got This!",
+                chunks: buildChunks(6, { floor: [3, 17], box: [0, 14], catwalk: [2, 10], light: [5, 16] }),
+            };
+
+        case 5: // ─── Level 5: Mr Spider ─────────────────────────────────────
+            return {
+                chunkCount: 7,
+                message: "So we kind of have a spider infestation here, you should be fine as long as you're not right underneath him. You're ability may or may not work against him.",
+                chunks: buildChunks(7, { floor: [4, 18], box: [0, 15], catwalk: [12, 16], light: [0, 14] }),
+            };
+
+        case 6: // ─── Level 6: Upping The Ante ─────────────────────────────────────
+            return {
+                chunkCount: 7,
+                message: "So everything here is harder, that's about it.",
+                chunks: buildChunks(7, { floor: [0, 20], box: [0, 18], catwalk: [0, 17], light: [0, 16] }),
+            };
+
+        case 7: // ─── Level 7: Hey Mr Smiley ─────────────────────────────────────
+            return {
+                chunkCount: 8,
+                message: "So since we've started to have electrical problems, we've been getting reports about this entity caled Mr Smiley, he's fast but hopefully you can press [E] faster!",
+                chunks: buildChunks(8, { floor: [0, 8], box: [0, 10], catwalk: [0, 12], light: [10, 20] }),
+            };
+
+        case 8: // ─── Level 8: Everything is On The Table ────────────────────────
+            return {
+                chunkCount: 8,
+                message: "I think that is about it. Good Luck!",
+                chunks: buildChunks(8, { floor: [0, 20], box: [0, 20], catwalk: [0, 16], light: [0, 20] }),
+            };
+
+        case 9: // ─── Level 9: Spider's Return ──────────────────────────────────
+            return {
+                chunkCount: 9,
+                message: "The spiders are back! Hope you're prepared.",
+                chunks: buildChunks(9, { floor: [0, 20], box: [0, 20], catwalk: [12, 20], light: [0, 16] }),
+            };
+
+        case 10: // ─── Level 10: Raising The Stakes ─────────────────────────────
+            return {
+                chunkCount: 10,
+                message: "Complete this! And you'll finally know who you are!",
+                chunks: buildChunks(10, { floor: [6, 20], box: [10, 20], catwalk: [7, 20], light: [6, 20] }),
             };
 
         default: // ── Fully random (fallback for unbuilt levels) ───

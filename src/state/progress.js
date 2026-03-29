@@ -34,7 +34,7 @@ export function getHighestLevel() {
 }
 
 export function completeLevel() {
-    state.currentLevel += 1;
+    state.currentLevel = Math.min(state.currentLevel + 1, 11);
     if (state.currentLevel > state.highestLevel) {
         state.highestLevel = state.currentLevel;
     }

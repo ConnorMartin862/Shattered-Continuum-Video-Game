@@ -86,9 +86,9 @@ export function initMenuRoom(k) {
         }
 
         // Full sentence broken into characters
-        const FULL_TEXT = "MY NAME IS ISSAC";
+        const FULL_TEXT = "MY NAME IS ISAAC";
         const chalkProgress = getChalkProgress();
-        const revealed = FULL_TEXT.slice(0, chalkProgress);
+        const revealed = FULL_TEXT.split('').filter(c => c !== ' ').slice(0, chalkProgress).join('');
 
         k.add([k.pos(0, 0), k.z(20), {
             draw() {
