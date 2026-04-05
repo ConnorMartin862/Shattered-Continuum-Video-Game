@@ -98,6 +98,25 @@ npm run dev
 
 ---
 
+## Changelog
+
+### Beta 1.1 (4-4-26)
+**Balance**
+- Time freeze now slows falling catwalk boards instead of having no effect mid-fall
+- Falling boards and spider eyes now glow/visible through fog darkness
+- Reduced small gap width to be more forgiving
+- Three-platform gaps now flash slower
+- Isaac moves faster in the air to make gaps more clearable
+- Increased gravity for snappier fall feel
+
+**Visuals**
+- Menu room back wall replaced with brick texture and crack detail
+- Hanging bulb light fixture added to menu room and all level chunks
+- Desk recolored to brown wood tone
+- Door visual added to menu room and level chunk 1
+- Chalk text now uses Cabin Sketch handwritten font with smear and jitter effects
+- Catwalk boards now glow light gray, shift to red when shaking
+
 ## Future Plans
 
 - [ ] Narrator dialogue system

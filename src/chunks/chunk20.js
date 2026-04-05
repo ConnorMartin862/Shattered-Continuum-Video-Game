@@ -62,18 +62,31 @@ export function buildChunk20(k, xOff = 0, onCollect) {
 
     // ── Light bulb hanging from ceiling ───────────────────────────
     const bulbX = xOff + CHUNK_W / 2;
-    k.add([k.rect(6, 14), k.pos(bulbX - 3, CEIL_H - 14), k.color(38, 34, 55), k.z(0)]);
-    k.add([k.circle(4), k.pos(bulbX, CEIL_H + 1), k.color(168, 162, 225), k.opacity(0.65), k.z(0)]);
-
+    const bulbY = 200;
+    // Cord
+    k.add([k.rect(2, bulbY - CEIL_H - 18), k.pos(bulbX - 1, CEIL_H), k.color(10, 10, 10), k.z(0)]);
+    // Socket
+    k.add([k.rect(10, 10), k.pos(bulbX - 5, bulbY - 18), k.color(32, 28, 48), k.z(0)]);
+    // Bulb base
+    k.add([k.rect(8, 6), k.pos(bulbX - 4, bulbY - 10), k.color(42, 38, 58), k.z(0)]);
+    // Bulb
+    k.add([k.pos(0, 0), k.z(5), {
+        draw() {
+            k.drawCircle({ pos: k.vec2(bulbX, bulbY + 6), radius: 12, color: k.rgb(180, 175, 220), opacity: 0.15 });
+            k.drawCircle({ pos: k.vec2(bulbX, bulbY + 6), radius: 7,  color: k.rgb(200, 195, 235), opacity: 0.9 });
+            k.drawCircle({ pos: k.vec2(bulbX, bulbY + 5), radius: 3,  color: k.rgb(240, 238, 255), opacity: 1 });
+        },
+    }]);
+    // Light cone
     k.add([k.pos(0, 0), k.z(5), {
         draw() {
             for (let i = 28; i >= 0; i--) {
                 const t = i / 28;
                 k.drawCircle({
-                    pos: k.vec2(bulbX, CEIL_H),
-                    radius: 420 * t,
-                    color: k.rgb(155, 162, 215),
-                    opacity: Math.pow(1 - t, 2.2) * 0.2,
+                    pos:     k.vec2(bulbX, bulbY),
+                    radius:  420 * t,
+                    color:   k.rgb(155, 162, 215),
+                    opacity: Math.pow(1 - t, 3.5) * 0.12,
                 });
             }
         },

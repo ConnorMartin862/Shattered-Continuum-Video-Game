@@ -15,6 +15,7 @@ const COL_WALL  = [14, 12, 26];
 // Door
 const DOOR_H = 138;
 const DOOR_Y = FLOOR_Y - DOOR_H;   // 440
+const DOOR_X = 80
 
 // Desk
 const DESK_REL_X = 280;
@@ -75,31 +76,44 @@ export function buildChunk1(k, xOff = 0, message = "") {
     }
 
     // Inner-face shadow line
-    k.add([k.rect(2, FLOOR_Y - CEIL_H), k.pos(xOff + WALL_T, CEIL_H), k.color(5, 4, 12), k.opacity(0.55), k.z(0)]);
+    k.add([k.rect(2, FLOOR_Y - CEIL_H), k.pos(DOOR_X + WALL_T, CEIL_H), k.color(5, 4, 12), k.opacity(0.55), k.z(0)]);
 
     // ── Door void + frame ──────────────────────────────────────────
-    k.add([k.rect(WALL_T, DOOR_H), k.pos(xOff, DOOR_Y), k.color(4, 3, 9), k.z(15)]);
+    k.add([k.rect(WALL_T, DOOR_H), k.pos(DOOR_X, DOOR_Y), k.color(4, 3, 9), k.z(15)]);
     // Top bar
-    k.add([k.rect(WALL_T + 10, 6), k.pos(xOff - 5, DOOR_Y - 6), k.color(36, 30, 50), k.z(15)]);
+    k.add([k.rect(WALL_T + 10, 6), k.pos(DOOR_X - 5, DOOR_Y - 6), k.color(36, 30, 50), k.z(15)]);
     // Right jamb
-    k.add([k.rect(6, DOOR_H + 6), k.pos(xOff + WALL_T - 6, DOOR_Y - 2), k.color(36, 30, 50), k.z(15)]);
+    k.add([k.rect(6, DOOR_H + 6), k.pos(DOOR_X + WALL_T - 6, DOOR_Y - 2), k.color(36, 30, 50), k.z(15)]);
     // Upper panel recess
-    k.add([k.rect(WALL_T - 12, DOOR_H / 2 - 14), k.pos(xOff + 6, DOOR_Y + 8),
+    k.add([k.rect(WALL_T - 12, DOOR_H / 2 - 14), k.pos(DOOR_X + 6, DOOR_Y + 8),
            k.color(9, 7, 14), k.outline(1, k.rgb(38, 32, 52)), k.z(15)]);
     // Lower panel recess
-    k.add([k.rect(WALL_T - 12, DOOR_H / 2 - 20), k.pos(xOff + 6, DOOR_Y + DOOR_H / 2 + 4),
+    k.add([k.rect(WALL_T - 12, DOOR_H / 2 - 20), k.pos(DOOR_X + 6, DOOR_Y + DOOR_H / 2 + 4),
            k.color(9, 7, 14), k.outline(1, k.rgb(38, 32, 52)), k.z(15)]);
     // Handle
-    k.add([k.rect(4, 14), k.pos(xOff + WALL_T - 14, DOOR_Y + DOOR_H / 2 - 7), k.color(55, 46, 72), k.z(15)]);
+    k.add([k.rect(4, 14), k.pos(DOOR_X + WALL_T - 14, DOOR_Y + DOOR_H / 2 - 7), k.color(55, 46, 72), k.z(15)]);
+
+    // ── Door visual ───────────────────────────────────────────
+    k.add([k.rect(WALL_T, DOOR_H), k.pos(DOOR_X, DOOR_Y), k.color(45, 28, 12), k.z(16)]);
+    k.add([k.rect(WALL_T, 2), k.pos(DOOR_X, DOOR_Y), k.color(62, 40, 18), k.opacity(0.9), k.z(16)]);
+    // Upper panel
+    k.add([k.rect(WALL_T - 16, DOOR_H / 2 - 18), k.pos(DOOR_X + 8, DOOR_Y + 10),
+        k.color(38, 22, 8), k.outline(1, k.rgb(55, 34, 14)), k.z(16)]);
+    // Lower panel
+    k.add([k.rect(WALL_T - 16, DOOR_H / 2 - 22), k.pos(DOOR_X + 8, DOOR_Y + DOOR_H / 2 + 6),
+        k.color(38, 22, 8), k.outline(1, k.rgb(55, 34, 14)), k.z(16)]);
+    // Handle — on right side since it opens into the room
+    k.add([k.rect(5, 16), k.pos(DOOR_X + WALL_T - 12, DOOR_Y + DOOR_H / 2 - 8), k.color(85, 70, 40), k.z(16)]);
+    k.add([k.circle(4), k.pos(DOOR_X + WALL_T - 10, DOOR_Y + DOOR_H / 2 - 8), k.color(100, 82, 45), k.z(16)]);
 
     // ── Desk ──────────────────────────────────────────────────────
     const deskX = xOff + DESK_REL_X;
     // Legs
-    k.add([k.rect(7, 44), k.pos(deskX + 8,           DESK_TOP_Y + 10), k.color(25, 20, 38), k.z(8)]);
-    k.add([k.rect(7, 44), k.pos(deskX + DESK_W - 15, DESK_TOP_Y + 10), k.color(25, 20, 38), k.z(8)]);
+    k.add([k.rect(7, 44), k.pos(deskX + 8,           DESK_TOP_Y + 10), k.color(55, 35, 18), k.z(8)]);
+    k.add([k.rect(7, 44), k.pos(deskX + DESK_W - 15, DESK_TOP_Y + 10), k.color(55, 35, 18), k.z(8)]);
     // Surface
-    k.add([k.rect(DESK_W, 11), k.pos(deskX, DESK_TOP_Y),     k.color(28, 24, 44),          k.z(8)]);
-    k.add([k.rect(DESK_W, 2),  k.pos(deskX, DESK_TOP_Y),     k.color(40, 34, 62), k.opacity(0.85), k.z(8)]);
+    k.add([k.rect(DESK_W, 11), k.pos(deskX, DESK_TOP_Y),     k.color(72, 48, 24),          k.z(8)]);
+    k.add([k.rect(DESK_W, 2),  k.pos(deskX, DESK_TOP_Y),     k.color(90, 62, 32), k.opacity(0.85), k.z(8)]);
     // Items on desk
     k.add([k.rect(34, 5), k.pos(deskX + 18,           DESK_TOP_Y - 5), k.color(48, 44, 65), k.opacity(0.75), k.z(8)]);
     k.add([k.rect(2,  28), k.pos(deskX + DESK_W - 28, DESK_TOP_Y - 5), k.color(55, 50, 72), k.opacity(0.6),  k.z(8)]);

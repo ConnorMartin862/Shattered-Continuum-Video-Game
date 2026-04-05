@@ -102,14 +102,14 @@ function addLighting(k, xOff, hasFog, getIsDead, destroyables) {
 
 // ── Helper: smiley entity ─────────────────────────────────────────
 function addSmiley(k, xOff, getIsaac, triggerDeath, destroyables) {
-    const SPEED     = 185 * 1.5;
+    const SPEED     = 185 * 1.3;
     const RADIUS    = 22;
     const SPAWN_Y   = CAT_Y - 40;
 
     let smileyX = xOff, smileyY = SPAWN_Y;
     let spawned = false, dead = false, despawned = false;
     let spawnTimer = 0;
-    const SPAWN_DUR = 1.2;
+    const SPAWN_DUR = 2.0;
     let glitchX = 0, glitchY = 0, glitchTimer = 0, opacity = 0;
 
     const smileyObj = k.add([k.pos(0, 0), k.z(22), {
@@ -246,7 +246,7 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
         addFloor(k, xOff, CHUNK_W);
 
     } else if (floorMode === 1) {
-        const GAP_START = 280, GAP_WIDTH = 260, GAP_END = GAP_START + GAP_WIDTH;
+        const GAP_START = 280, GAP_WIDTH = 240, GAP_END = GAP_START + GAP_WIDTH;
         addFloor(k, xOff,                    GAP_START - offset);
         addFloor(k, xOff + GAP_END + offset, CHUNK_W - GAP_END - offset);
         addGapDarkness(k, xOff + GAP_START, GAP_WIDTH);
@@ -493,6 +493,28 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
             ]);
             destroyables.push(boardBody);
 
+            const boardGlow = k.add([k.pos(0, 0), k.z(79), {
+                draw() {
+                    if (destroyed) return;
+                    const bx = boardBody.pos.x, by = boardBody.pos.y;
+                    const glowColor = phase === "shaking" ? k.rgb(220, 160, 160) : k.rgb(200, 195, 215);
+                    const surfaceColor = phase === "shaking" ? k.rgb(200, 130, 130) : k.rgb(180, 175, 200);
+                    for (let i = 3; i >= 0; i--) {
+                        const t = i / 3;
+                        k.drawRect({
+                            pos:     k.vec2(bx - (3 - i) * 3, by - (3 - i) * 2),
+                            width:   CAT_BOARD_W + (3 - i) * 6,
+                            height:  CAT_BOARD_H + (3 - i) * 4,
+                            color:   glowColor,
+                            opacity: (1 - t) * 0.18,
+                        });
+                    }
+                    k.drawRect({ pos: k.vec2(bx, by), width: CAT_BOARD_W, height: CAT_BOARD_H,
+                                color: surfaceColor, opacity: 0.85 });
+                },
+            }]);
+            destroyables.push(boardGlow);
+
             const boardVisual = k.add([k.pos(0, 0), k.z(9), {
                 update() {
                     if (destroyed || getIsDead() || !triggered) return;
@@ -505,8 +527,9 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
                         boardBody.pos.x = absX + shakeX;
                         if (shakeTimer >= 1.0) { phase = "falling"; shakeX = 0; boardBody.pos.x = absX; }
                     } else if (phase === "falling") {
-                        velY += 980 * k.dt();
-                        boardBody.pos.y += velY * k.dt();
+                        const timeScale = freeze.active ? 0.30 : 1;
+                        velY += 980 * k.dt() * timeScale;
+                        boardBody.pos.y += velY * k.dt() * timeScale;
                         const isaac = getIsaac();
                         if (isaac) {
                             const overlapping = boardBody.pos.x < isaac.pos.x + 26 && boardBody.pos.x + CAT_BOARD_W > isaac.pos.x &&
@@ -557,7 +580,7 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
         let skitterTimer = 0, skitterOX = 0, skitterOY = 0;
         let triggered = false, dead = false;
 
-        const spiderObj = k.add([k.pos(0, 0), k.z(20), {
+        const spiderObj = k.add([k.pos(0, 0), k.z(79), {
             update() {
                 if (dead || !triggered || freeze.active) return;
                 skitterTimer += k.dt();
@@ -600,8 +623,8 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
                 if (dead) return;
                 const sx = spiderX + skitterOX, sy = spiderY + skitterOY;
                 k.drawRect({ pos: k.vec2(sx - 14, sy - 14), width: 28, height: 28, color: k.rgb(28, 22, 40), opacity: 0.95, radius: 5 });
-                k.drawRect({ pos: k.vec2(sx - 7, sy - 6), width: 5, height: 5, color: k.rgb(180, 40, 40), opacity: 1 });
-                k.drawRect({ pos: k.vec2(sx + 3, sy - 6), width: 5, height: 5, color: k.rgb(180, 40, 40), opacity: 1 });
+                k.drawRect({ pos: k.vec2(sx - 7, sy - 6), width: 5, height: 5, color: k.rgb(180, 40, 40), opacity: 1});
+                k.drawRect({ pos: k.vec2(sx + 3, sy - 6), width: 5, height: 5, color: k.rgb(180, 40, 40), opacity: 1});
                 const legPairs = [[-20,-8],[-18,0],[-18,8],[-20,16],[20,-8],[18,0],[18,8],[20,16]];
                 for (const [lx, ly] of legPairs) {
                     k.drawRect({ pos: k.vec2(sx + (lx > 0 ? 14 : lx), sy + ly), width: Math.abs(lx) - 14, height: 3, color: k.rgb(40, 30, 55), opacity: 0.85 });
@@ -615,6 +638,24 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
             },
         }]);
         destroyables.push(spiderObj);
+        const spiderEyes = k.add([k.pos(0, 0), k.z(79), {
+            draw() {
+                if (dead) return;
+                const sx = spiderX + skitterOX;
+                const sy = spiderY + skitterOY;
+                // Glow
+                k.drawRect({ pos: k.vec2(sx - 12, sy - 10), width: 13, height: 13,
+                            color: k.rgb(220, 80, 80), opacity: 0.15 });
+                k.drawRect({ pos: k.vec2(sx + 2, sy - 10), width: 13, height: 13,
+                            color: k.rgb(220, 80, 80), opacity: 0.15 });
+                // Eyes
+                k.drawRect({ pos: k.vec2(sx - 7, sy - 6), width: 5, height: 5,
+                            color: k.rgb(220, 60, 60), opacity: 1 });
+                k.drawRect({ pos: k.vec2(sx + 3, sy - 6), width: 5, height: 5,
+                            color: k.rgb(220, 60, 60), opacity: 1 });
+            },
+        }]);
+        destroyables.push(spiderEyes);
         return { trigger() { triggered = true; } };
     }
 

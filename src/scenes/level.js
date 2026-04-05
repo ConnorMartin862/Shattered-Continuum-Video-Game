@@ -194,7 +194,7 @@ export function initLevel(k) {
                 close() { open = false; },
             };
         })();
-        k.setGravity(1100);
+        k.setGravity(1400);
 
         const levelNum = getCurrentLevel();
         const config   = getLevelConfig(levelNum);
@@ -246,14 +246,22 @@ export function initLevel(k) {
         k.add([k.rect(CHUNK_W * totalChunks, 1), k.pos(0, CEIL_H + 3), k.color(4, 3, 10), k.opacity(0.7), k.z(0)]);
 
         // ── Light bulb (chunk 1 side) ─────────────────────────────
-        const BULB_X = CHUNK_W / 2;
-        k.add([k.rect(6, 14), k.pos(BULB_X - 3, CEIL_H - 14), k.color(38, 34, 55), k.z(0)]);
-        k.add([k.circle(4), k.pos(BULB_X, CEIL_H + 1), k.color(168, 162, 225), k.opacity(0.65), k.z(0)]);
-
-        // ── Back-wall texture lines ───────────────────────────────
-        for (let y = CEIL_H + 55; y < FLOOR_Y - 10; y += 68) {
-            k.add([k.rect(CHUNK_W * 2 - WALL_T, 1), k.pos(WALL_T, y), k.color(12, 10, 22), k.opacity(0.38), k.z(0)]);
-        }
+        const BULB_X    = CHUNK_W / 2;
+        const BULB_Y    = 200;
+        // Cord
+        k.add([k.rect(2, BULB_Y - CEIL_H - 18), k.pos(BULB_X - 1, CEIL_H), k.color(10, 10, 10), k.z(5)]);
+        // Socket
+        k.add([k.rect(10, 10), k.pos(BULB_X - 5, BULB_Y - 18), k.color(32, 28, 48), k.z(5)]);
+        // Bulb base
+        k.add([k.rect(8, 6), k.pos(BULB_X - 4, BULB_Y - 10), k.color(42, 38, 58), k.z(5)]);
+        // Bulb
+        k.add([k.pos(0, 0), k.z(5), {
+            draw() {
+                k.drawCircle({ pos: k.vec2(BULB_X, BULB_Y + 6), radius: 12, color: k.rgb(180, 175, 220), opacity: 0.15 });
+                k.drawCircle({ pos: k.vec2(BULB_X, BULB_Y + 6), radius: 7,  color: k.rgb(200, 195, 235), opacity: 0.9 });
+                k.drawCircle({ pos: k.vec2(BULB_X, BULB_Y + 5), radius: 3,  color: k.rgb(240, 238, 255), opacity: 1 });
+            },
+        }]);
 
         // ── Overhead light cone ───────────────────────────────────
         k.add([k.pos(0, 0), k.z(5), {
@@ -261,10 +269,10 @@ export function initLevel(k) {
                 for (let i = 28; i >= 0; i--) {
                     const t = i / 28;
                     k.drawCircle({
-                        pos: k.vec2(BULB_X, CEIL_H),
-                        radius: 420 * t,
-                        color: k.rgb(155, 162, 215),
-                        opacity: Math.pow(1 - t, 2.2) * 0.2,
+                        pos:     k.vec2(BULB_X, BULB_Y),
+                        radius:  420 * t,
+                        color:   k.rgb(155, 162, 215),
+                        opacity: Math.pow(1 - t, 3.5) * 0.12,
                     });
                 }
             },
@@ -287,7 +295,7 @@ export function initLevel(k) {
             k.color(50, 45, 68),
             k.area({ shape: new k.Rect(k.vec2(3, 0), ISAAC_W - 6, ISAAC_H) }),
             k.body(),
-            k.z(10),
+            k.z(80),
             "issac",
         ]);
 
@@ -295,7 +303,7 @@ export function initLevel(k) {
             k.rect(20, 20),
             k.pos(0, 0),
             k.color(62, 56, 82),
-            k.z(10),
+            k.z(80),
         ]);
 
         // ── Jump ──────────────────────────────────────────────────
@@ -311,8 +319,9 @@ export function initLevel(k) {
         // ── Isaac update ──────────────────────────────────────────
         isaac.onUpdate(() => {
             if (!settings.isOpen() && !bulletin.isOpen()) {
-                if (k.isKeyDown("left") || k.isKeyDown("a")) isaac.move(-185, 0);
-                else if (k.isKeyDown("right") || k.isKeyDown("d")) isaac.move(185, 0);
+                const speed = isaac.isGrounded() ? 185 : 240;
+                if (k.isKeyDown("left") || k.isKeyDown("a")) isaac.move(-speed, 0);
+                else if (k.isKeyDown("right") || k.isKeyDown("d")) isaac.move(speed, 0);
             }
 
             isaacHead.pos.x = isaac.pos.x + ISAAC_W / 2 - 10;
@@ -343,7 +352,7 @@ export function initLevel(k) {
 
         // ── Door glow ─────────────────────────────────────────────
         const doorGlow = k.add([
-            k.pos(0, 0),
+            k.pos(80, 0),
             k.z(90),
             {
                 glowOpacity: 0.18,
@@ -401,7 +410,7 @@ export function initLevel(k) {
 
             const rate = k.dt() * 5;
             const so = settings.isOpen();
-            doorGlow.glowOpacity += ((nearDoor && !so ? 0.38 : 0.18) - doorGlow.glowOpacity) * rate;
+            doorGlow.glowOpacity += ((nearDoor && !so ? 0.22 : 0.08) - doorGlow.glowOpacity) * rate;
             doorPrompt.alpha += ((nearDoor && !so ? 1 : 0) - doorPrompt.alpha) * rate;
             deskPrompt.alpha += ((nearDesk && !so ? 1 : 0) - deskPrompt.alpha) * rate;
             bulletinPrompt.alpha += ((nearBulletin && !so && !bulletin.isOpen() ? 1 : 0) - bulletinPrompt.alpha) * rate;

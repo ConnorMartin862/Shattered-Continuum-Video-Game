@@ -32,7 +32,7 @@ const ROOM_RIGHT = W - WALL_T;
 // Door — flush with inner face of right wall
 const DOOR_W = 54;
 const DOOR_H = 138;
-const DOOR_X = W - WALL_T + 1;
+const DOOR_X = W - WALL_T - DOOR_W;
 const DOOR_Y = FLOOR_Y - DOOR_H;
 
 // Desk
@@ -42,8 +42,8 @@ const DESK_TOP_Y    = FLOOR_Y - 52;
 const DESK_PROXIMITY = 130;
 
 // TV panel (between door and desk, mounted on wall)
-const TVX            = 220;
-const TVY            = FLOOR_Y - 280;
+const TVX            = 720;
+const TVY            = FLOOR_Y - 240;
 const TVW            = 120;
 const TVH            = 80;
 const TV_PROXIMITY   = 110;
@@ -56,7 +56,7 @@ const ISAAC_START_Y = FLOOR_Y - ISAAC_H;
 
 // Overhead light
 const LIGHT_X      = W / 2;
-const LIGHT_Y      = CEIL_H;
+const LIGHT_Y      = 200;
 const LIGHT_RADIUS = 420;
 
 const DOOR_PROXIMITY = 140;
@@ -82,9 +82,20 @@ export function initMenuRoom(k) {
         k.add([k.rect(W, 3), k.pos(0, CEIL_H), k.color(...COL_TRIM), k.opacity(0.85), k.z(0)]);
         k.add([k.rect(W, 1), k.pos(0, CEIL_H + 3), k.color(4, 3, 10), k.opacity(0.7), k.z(0)]);
 
-        // Light bulb housing
-        k.add([k.rect(6, 14), k.pos(LIGHT_X - 3, CEIL_H - 14), k.color(38, 34, 55), k.z(0)]);
-        k.add([k.circle(4), k.pos(LIGHT_X, CEIL_H + 1), k.color(168, 162, 225), k.opacity(0.65), k.z(0)]);
+        // Hanging cord
+        k.add([k.rect(2, LIGHT_Y - CEIL_H - 18), k.pos(LIGHT_X - 1, CEIL_H), k.color(10, 10, 10), k.z(5)]);
+        // Socket
+        k.add([k.rect(10, 10), k.pos(LIGHT_X - 5, LIGHT_Y - 18), k.color(32, 28, 48), k.z(5)]);
+        // Bulb base
+        k.add([k.rect(8, 6), k.pos(LIGHT_X - 4, LIGHT_Y - 10), k.color(42, 38, 58), k.z(5)]);
+        // Bulb
+        k.add([k.pos(0, 0), k.z(5), {
+            draw() {
+                k.drawCircle({ pos: k.vec2(LIGHT_X, LIGHT_Y + 6), radius: 12, color: k.rgb(180, 175, 220), opacity: 0.15 });
+                k.drawCircle({ pos: k.vec2(LIGHT_X, LIGHT_Y + 6), radius: 7,  color: k.rgb(200, 195, 235), opacity: 0.9 });
+                k.drawCircle({ pos: k.vec2(LIGHT_X, LIGHT_Y + 5), radius: 3,  color: k.rgb(240, 238, 255), opacity: 1 });
+            },
+        }]);
 
         // ── Left wall ─────────────────────────────────────────────
         k.add([k.rect(WALL_T, FLOOR_Y - CEIL_H), k.pos(0, CEIL_H), k.color(...COL_WALL), k.z(0)]);
@@ -105,10 +116,141 @@ export function initMenuRoom(k) {
         k.add([k.rect(2, FLOOR_Y - CEIL_H), k.pos(WALL_T, CEIL_H), k.color(5, 4, 12), k.opacity(0.55), k.z(0)]);
         k.add([k.rect(2, FLOOR_Y - CEIL_H), k.pos(W - WALL_T - 2, CEIL_H), k.color(5, 4, 12), k.opacity(0.55), k.z(0)]);
 
-        // Back-wall texture lines
-        for (let y = CEIL_H + 55; y < FLOOR_Y - 10; y += 68) {
-            k.add([k.rect(W - WALL_T * 2, 1), k.pos(WALL_T, y), k.color(12, 10, 22), k.opacity(0.38), k.z(0)]);
-        }
+        // ── Plaster texture + cracks ──────────────────────────────
+        k.add([k.pos(0, 0), k.z(1), {
+            draw() {
+                // ── Back wall plaster variation ───────────────────
+                // Light falloff from center — slightly lighter near light source
+                for (let i = 0; i < 6; i++) {
+                    const t = i / 6;
+                    const w = (ROOM_RIGHT - ROOM_LEFT) * (1 - t * 0.5);
+                    const cx = W / 2;
+                    k.drawRect({
+                        pos:     k.vec2(cx - w / 2, CEIL_H),
+                        width:   w,
+                        height:  FLOOR_Y - CEIL_H,
+                        color: k.rgb(45, 50, 78),
+                        opacity: (1 - t) * 0.12,
+                    });
+                }
+
+                // Brick-like bands
+                const brickH   = 28;
+                const brickGap = 6;
+                const brickColorsPool = [
+                    [38, 34, 52], [28, 25, 42], [35, 31, 50],
+                    [25, 22, 40], [36, 32, 51], [27, 24, 42],
+                ];
+                let brickY = CEIL_H + 10;
+                let brickIndex = 0;
+                while (brickY < FLOOR_Y) {
+                    k.drawRect({
+                        pos:     k.vec2(WALL_T, brickY),
+                        width:   W - WALL_T * 2,
+                        height:  brickH,
+                        color:   k.rgb(...brickColorsPool[brickIndex % brickColorsPool.length]),
+                        opacity: 0.7,
+                    });
+                    // Horizontal mortar
+                    k.drawRect({
+                        pos:     k.vec2(WALL_T, brickY + brickH),
+                        width:   W - WALL_T * 2,
+                        height:  brickGap,
+                        color:   k.rgb(14, 12, 24),
+                        opacity: 0.7,
+                    });
+                    // Vertical mortar lines — staggered every other row
+                    const brickW    = 120;
+                    const rowOffset = (brickIndex % 2 === 0) ? 0 : brickW / 2;
+                    for (let vx = WALL_T + rowOffset; vx < W - WALL_T; vx += brickW) {
+                        k.drawRect({
+                            pos:     k.vec2(vx, brickY),
+                            width:   brickGap,
+                            height:  brickH,
+                            color:   k.rgb(14, 12, 24),
+                            opacity: 0.7,
+                        });
+                    }
+                    brickY += brickH + brickGap;
+                    brickIndex++;
+                }
+
+                // Cover brick overshoot at floor
+                k.drawRect({
+                    pos:     k.vec2(WALL_T, FLOOR_Y),
+                    width:   W - WALL_T * 2,
+                    height:  50,
+                    color:   k.rgb(...COL_FLOOR),
+                    opacity: 1,
+                });
+
+                // ── Ceiling plaster ───────────────────────────────
+                for (let i = 0; i < 4; i++) {
+                    const t = i / 4;
+                    k.drawRect({
+                        pos:     k.vec2(0, i * (CEIL_H / 4)),
+                        width:   W,
+                        height:  CEIL_H / 4 + 1,
+                        color:   k.rgb(12, 10, 22),
+                        opacity: t * 0.25,
+                    });
+                }
+
+                // ── Left wall plaster ─────────────────────────────
+                for (let i = 0; i < 3; i++) {
+                    const t = i / 3;
+                    k.drawRect({
+                        pos:     k.vec2(0, CEIL_H + i * ((FLOOR_Y - CEIL_H) / 3)),
+                        width:   WALL_T,
+                        height:  (FLOOR_Y - CEIL_H) / 3 + 1,
+                        color: k.rgb(25 + i, 28 + i, 44 + i),
+                        opacity: 0.9,
+                    });
+                }
+
+                // ── Right wall plaster ────────────────────────────
+                for (let i = 0; i < 3; i++) {
+                    k.drawRect({
+                        pos:     k.vec2(W - WALL_T, CEIL_H + i * ((FLOOR_Y - CEIL_H) / 3)),
+                        width:   WALL_T,
+                        height:  (FLOOR_Y - CEIL_H) / 3 + 1,
+                        color: k.rgb(25 + i, 28 + i, 44 + i),
+                        opacity: 0.9,
+                    });
+                }
+
+                // ── Large cracks ──────────────────────────────────
+                // Crack 1 — back wall left side, branches downward
+                k.drawLine({ p1: k.vec2(320, CEIL_H + 40),  p2: k.vec2(335, CEIL_H + 110), width: 1.5, color: k.rgb(6, 5, 14), opacity: 0.7 });
+                k.drawLine({ p1: k.vec2(335, CEIL_H + 110), p2: k.vec2(325, CEIL_H + 180), width: 1.2, color: k.rgb(6, 5, 14), opacity: 0.65 });
+                k.drawLine({ p1: k.vec2(335, CEIL_H + 110), p2: k.vec2(350, CEIL_H + 155), width: 1,   color: k.rgb(6, 5, 14), opacity: 0.55 });
+                // Crack 1 hairlines
+                k.drawLine({ p1: k.vec2(330, CEIL_H + 70),  p2: k.vec2(322, CEIL_H + 95),  width: 0.8, color: k.rgb(6, 5, 14), opacity: 0.4 });
+                k.drawLine({ p1: k.vec2(326, CEIL_H + 150), p2: k.vec2(316, CEIL_H + 170), width: 0.8, color: k.rgb(6, 5, 14), opacity: 0.35 });
+
+                // Crack 2 — back wall right side near desk
+                k.drawLine({ p1: k.vec2(820, CEIL_H + 20),  p2: k.vec2(808, CEIL_H + 90),  width: 1.5, color: k.rgb(6, 5, 14), opacity: 0.65 });
+                k.drawLine({ p1: k.vec2(808, CEIL_H + 90),  p2: k.vec2(798, CEIL_H + 150), width: 1.2, color: k.rgb(6, 5, 14), opacity: 0.6 });
+                k.drawLine({ p1: k.vec2(808, CEIL_H + 90),  p2: k.vec2(822, CEIL_H + 130), width: 1,   color: k.rgb(6, 5, 14), opacity: 0.5 });
+                // Crack 2 hairlines
+                k.drawLine({ p1: k.vec2(812, CEIL_H + 55),  p2: k.vec2(820, CEIL_H + 75),  width: 0.8, color: k.rgb(6, 5, 14), opacity: 0.35 });
+                k.drawLine({ p1: k.vec2(800, CEIL_H + 120), p2: k.vec2(792, CEIL_H + 138), width: 0.8, color: k.rgb(6, 5, 14), opacity: 0.3 });
+
+                // Crack 3 — ceiling, runs from center toward right
+                k.drawLine({ p1: k.vec2(W / 2 + 40, 8),   p2: k.vec2(W / 2 + 120, 28),   width: 1.5, color: k.rgb(6, 5, 14), opacity: 0.6 });
+                k.drawLine({ p1: k.vec2(W / 2 + 120, 28), p2: k.vec2(W / 2 + 200, 18),   width: 1.2, color: k.rgb(6, 5, 14), opacity: 0.55 });
+                k.drawLine({ p1: k.vec2(W / 2 + 120, 28), p2: k.vec2(W / 2 + 140, 44),   width: 1,   color: k.rgb(6, 5, 14), opacity: 0.45 });
+                // Ceiling hairlines
+                k.drawLine({ p1: k.vec2(W / 2 + 70, 14),  p2: k.vec2(W / 2 + 80, 26),    width: 0.8, color: k.rgb(6, 5, 14), opacity: 0.3 });
+                k.drawLine({ p1: k.vec2(W / 2 + 160, 22), p2: k.vec2(W / 2 + 170, 36),   width: 0.8, color: k.rgb(6, 5, 14), opacity: 0.3 });
+
+                // ── Scattered hairlines ───────────────────────────
+                k.drawLine({ p1: k.vec2(480, CEIL_H + 200), p2: k.vec2(490, CEIL_H + 230), width: 0.8, color: k.rgb(6, 5, 14), opacity: 0.28 });
+                k.drawLine({ p1: k.vec2(700, CEIL_H + 80),  p2: k.vec2(708, CEIL_H + 105), width: 0.8, color: k.rgb(6, 5, 14), opacity: 0.25 });
+                k.drawLine({ p1: k.vec2(560, CEIL_H + 320), p2: k.vec2(552, CEIL_H + 345), width: 0.8, color: k.rgb(6, 5, 14), opacity: 0.22 });
+                k.drawLine({ p1: k.vec2(900, CEIL_H + 260), p2: k.vec2(910, CEIL_H + 280), width: 0.8, color: k.rgb(6, 5, 14), opacity: 0.22 });
+            },
+        }]);
 
         // ── Chalk text ────────────────────────────────────────────
         const FULL_TEXT = "MY NAME IS ISAAC";
@@ -121,16 +263,16 @@ export function initMenuRoom(k) {
         }).join('');
 
         k.add([k.pos(0, 0), k.z(20), {
-            draw() { drawChalkText(k, revealed, 310, CEIL_H + 90, 78); },
+            draw() { drawChalkText(k, revealed, 170, CEIL_H + 290, 42); },
         }]);
 
         // ── Desk ──────────────────────────────────────────────────
-        k.add([k.rect(7, 44), k.pos(DESK_X + 8,           DESK_TOP_Y + 10), k.color(25, 20, 38), k.z(8)]);
-        k.add([k.rect(7, 44), k.pos(DESK_X + DESK_W - 15, DESK_TOP_Y + 10), k.color(25, 20, 38), k.z(8)]);
-        k.add([k.rect(DESK_W, 11), k.pos(DESK_X, DESK_TOP_Y), k.color(28, 24, 44), k.z(8)]);
-        k.add([k.rect(DESK_W, 2),  k.pos(DESK_X, DESK_TOP_Y), k.color(40, 34, 62), k.opacity(0.85), k.z(8)]);
-        k.add([k.rect(34, 5), k.pos(DESK_X + 18,           DESK_TOP_Y - 5), k.color(48, 44, 65), k.opacity(0.75), k.z(8)]);
-        k.add([k.rect(2,  28), k.pos(DESK_X + DESK_W - 28, DESK_TOP_Y - 5), k.color(55, 50, 72), k.opacity(0.6),  k.z(8)]);
+        k.add([k.rect(7, 44), k.pos(DESK_X + 8,           DESK_TOP_Y + 10), k.color(55, 35, 18), k.z(8)]);
+        k.add([k.rect(7, 44), k.pos(DESK_X + DESK_W - 15, DESK_TOP_Y + 10), k.color(55, 35, 18), k.z(8)]);
+        k.add([k.rect(DESK_W, 11), k.pos(DESK_X, DESK_TOP_Y), k.color(72, 48, 24), k.z(8)]);
+        k.add([k.rect(DESK_W, 2),  k.pos(DESK_X, DESK_TOP_Y), k.color(90, 62, 32), k.opacity(0.1), k.z(8)]);
+        k.add([k.rect(34, 5), k.pos(DESK_X + 18,           DESK_TOP_Y - 5), k.color(48, 44, 65), k.opacity(0.1), k.z(8)]);
+        k.add([k.rect(2,  28), k.pos(DESK_X + DESK_W - 28, DESK_TOP_Y - 5), k.color(55, 50, 72), k.opacity(0.1),  k.z(8)]);
 
         // ── TV panel (unlocked after level 10) ────────────────────
         if (isGameComplete()) {
@@ -177,7 +319,7 @@ export function initMenuRoom(k) {
                 for (let i = 28; i >= 0; i--) {
                     const t = i / 28;
                     k.drawCircle({ pos: k.vec2(LIGHT_X, LIGHT_Y), radius: LIGHT_RADIUS * t,
-                                   color: k.rgb(155, 162, 215), opacity: Math.pow(1 - t, 2.2) * 0.2 });
+                                   color: k.rgb(155, 162, 215), opacity: Math.pow(1 - t, 3.5) * 0.12, });
                 }
             },
         }]);
@@ -191,6 +333,22 @@ export function initMenuRoom(k) {
         k.add([k.rect(DOOR_W - 12, DOOR_H / 2 - 20), k.pos(DOOR_X + 6, DOOR_Y + DOOR_H / 2 + 4),
                k.color(9, 7, 14), k.outline(1, k.rgb(38, 32, 52)), k.z(15)]);
         k.add([k.rect(4, 14), k.pos(DOOR_X + 8, DOOR_Y + DOOR_H / 2 - 7), k.color(55, 46, 72), k.z(15)]);
+
+        // ── Door visual ───────────────────────────────────────────
+        // Door body
+        k.add([k.rect(DOOR_W, DOOR_H), k.pos(DOOR_X, DOOR_Y), k.color(45, 28, 12), k.z(16)]);
+        // Door top highlight
+        k.add([k.rect(DOOR_W, 2), k.pos(DOOR_X, DOOR_Y), k.color(62, 40, 18), k.opacity(0.9), k.z(16)]);
+        // Upper panel
+        k.add([k.rect(DOOR_W - 16, DOOR_H / 2 - 18), k.pos(DOOR_X + 8, DOOR_Y + 10),
+            k.color(38, 22, 8), k.outline(1, k.rgb(55, 34, 14)), k.z(16)]);
+        // Lower panel
+        k.add([k.rect(DOOR_W - 16, DOOR_H / 2 - 22), k.pos(DOOR_X + 8, DOOR_Y + DOOR_H / 2 + 6),
+            k.color(38, 22, 8), k.outline(1, k.rgb(55, 34, 14)), k.z(16)]);
+        // Handle
+        k.add([k.rect(5, 16), k.pos(DOOR_X + 8, DOOR_Y + DOOR_H / 2 - 8), k.color(85, 70, 40), k.z(16)]);
+        // Handle knob
+        k.add([k.circle(4), k.pos(DOOR_X + 10, DOOR_Y + DOOR_H / 2 - 8), k.color(100, 82, 45), k.z(16)]);
 
         // ── Isaac ─────────────────────────────────────────────────
         const GRAVITY    = 1100;
@@ -318,7 +476,7 @@ export function initMenuRoom(k) {
             nearTV   = isGameComplete() && Math.abs(isaacCX - (TVX + TVW / 2)) < TV_PROXIMITY;
 
             const rate = k.dt() * 5;
-            doorGlow.glowOpacity += ((nearDoor && !anyOpen ? 0.38 : 0.18) - doorGlow.glowOpacity) * rate;
+            doorGlow.glowOpacity += ((nearDoor && !anyOpen ? 0.22 : 0.08) - doorGlow.glowOpacity) * rate;
             doorPrompt.opacity   += ((nearDoor && !anyOpen ? 1 : 0) - doorPrompt.opacity) * rate;
             deskPrompt.opacity   += ((nearDesk && !anyOpen ? 1 : 0) - deskPrompt.opacity) * rate;
             if (tvPrompt) {
@@ -346,18 +504,29 @@ export function initMenuRoom(k) {
 
 export function drawChalkText(k, text, x, y, size) {
     const jitter = [
-        [-1.8, -1.2], [ 1.2, -0.6], [-0.6,  1.8], [ 1.6,  0.4],
-        [ 0.2, -1.6], [-1.2,  0.8], [ 0.8,  1.2], [-0.4, -0.4],
-        [ 1.0, -1.0], [-0.8,  1.4], [ 1.4,  0.2], [-1.4, -0.8],
+        [-2.4, -1.6], [ 1.8, -0.8], [-0.8,  2.4], [ 2.2,  0.6],
+        [ 0.4, -2.2], [-1.6,  1.2], [ 1.2,  1.8], [-0.6, -0.6],
+        [ 1.4, -1.4], [-1.2,  2.0], [ 2.0,  0.4], [-2.0, -1.0],
+        [ 0.8,  1.6], [-1.8, -0.4], [ 1.6, -1.8], [-0.4,  1.0],
     ];
-    for (const [ox, oy] of jitter) {
-        k.drawText({ text, pos: k.vec2(x + ox, y + oy), size, font: "monospace",
-                     color: k.rgb(215, 212, 232), opacity: 0.055 });
+    // Smear passes — slightly offset horizontal to simulate chalk drag
+    for (let s = 0; s < 3; s++) {
+        k.drawText({ text, pos: k.vec2(x + s * 0.8, y + 0.3), size, font: "chalk",
+                     color: k.rgb(210, 208, 228), opacity: 0.04 });
     }
-    k.drawText({ text, pos: k.vec2(x, y), size, font: "monospace",
-                 color: k.rgb(215, 210, 235), opacity: 0.78 });
-    k.drawText({ text, pos: k.vec2(x, y), size: size + 3, font: "monospace",
-                 color: k.rgb(225, 220, 255), opacity: 0.07 });
+    // Jitter blur passes
+    for (const [ox, oy] of jitter) {
+        k.drawText({ text, pos: k.vec2(x + ox, y + oy), size, font: "chalk",
+                     color: k.rgb(215, 212, 232), opacity: 0.045 });
+    }
+    // Core text
+    k.drawText({ text, pos: k.vec2(x, y), size, font: "chalk",
+                 color: k.rgb(218, 214, 238), opacity: 0.60 });
+    // Faint dust scatter — tiny offset passes at low opacity
+    k.drawText({ text, pos: k.vec2(x - 0.5, y + 2.5), size, font: "chalk",
+                 color: k.rgb(200, 196, 220), opacity: 0.03 });
+    k.drawText({ text, pos: k.vec2(x + 2.0, y - 0.5), size, font: "chalk",
+                 color: k.rgb(200, 196, 220), opacity: 0.03 });
 }
 
 export function drawVignette(k) {

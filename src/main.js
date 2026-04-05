@@ -11,7 +11,11 @@ const k = kaboom({
     crisp: false,
 });
 
+k.loadFont("chalk", "/fonts/CabinSketch-Regular.ttf");
+
 initMenuRoom(k);
 initLevel(k);
 
-k.go("menuRoom");
+k.onLoad(() => {
+    k.go("menuRoom");
+});
