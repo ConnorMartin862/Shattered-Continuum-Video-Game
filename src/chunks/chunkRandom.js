@@ -9,8 +9,6 @@ const WALL_T  = 82;
 const H       = 720;
 const offset  = 25;
 
-let fogAdded = false;
-
 const COL_FLOOR = [16, 13, 28];
 
 // Flickering platform dimensions
@@ -54,50 +52,24 @@ function addGapDarkness(k, gapX, gapW) {
 function addLighting(k, xOff, hasFog, getIsDead, destroyables) {
     if (!hasFog) {
         const bulbX = xOff + CHUNK_W / 2;
-        k.add([k.rect(6, 14), k.pos(bulbX - 3, CEIL_H - 14), k.color(38, 34, 55), k.z(0)]);
-        k.add([k.circle(4), k.pos(bulbX, CEIL_H + 1), k.color(168, 162, 225), k.opacity(0.65), k.z(0)]);
+        const bulbY = 200;
+        k.add([k.rect(2, bulbY - CEIL_H - 18), k.pos(bulbX - 1, CEIL_H), k.color(10, 10, 10), k.z(0)]);
+        k.add([k.rect(10, 10), k.pos(bulbX - 5, bulbY - 18), k.color(32, 28, 48), k.z(0)]);
+        k.add([k.rect(8, 6), k.pos(bulbX - 4, bulbY - 10), k.color(42, 38, 58), k.z(0)]);
         k.add([k.pos(0, 0), k.z(5), {
             draw() {
+                k.drawCircle({ pos: k.vec2(bulbX, bulbY + 6), radius: 12, color: k.rgb(180, 175, 220), opacity: 0.15 });
+                k.drawCircle({ pos: k.vec2(bulbX, bulbY + 6), radius: 7,  color: k.rgb(200, 195, 235), opacity: 0.9 });
+                k.drawCircle({ pos: k.vec2(bulbX, bulbY + 5), radius: 3,  color: k.rgb(240, 238, 255), opacity: 1 });
                 for (let i = 28; i >= 0; i--) {
                     const t = i / 28;
-                    k.drawCircle({ pos: k.vec2(bulbX, CEIL_H), radius: 420 * t,
-                                   color: k.rgb(155, 162, 215), opacity: Math.pow(1 - t, 2.2) * 0.2 });
+                    k.drawCircle({ pos: k.vec2(bulbX, bulbY), radius: 420 * t,
+                                   color: k.rgb(155, 162, 215), opacity: Math.pow(1 - t, 3.5) * 0.12 });
                 }
             },
         }]);
-        return;
     }
-
-    if (fogAdded) return;
-    fogAdded = true;
-
-    let fogTimer = 0;
-    const fogObj = k.add([k.pos(0, 0), k.z(78), k.fixed(), {
-        update() { fogTimer += k.dt(); },
-        draw() {
-            if (getIsDead && getIsDead()) return;
-            const camX       = k.camPos().x;
-            const chunkLeft  = xOff - 1280 / 2;
-            const chunkRight = xOff + CHUNK_W + 1280 / 2;
-            if (camX < chunkLeft || camX > chunkRight) return;
-
-            k.drawRect({ pos: k.vec2(0, 0), width: 1280, height: 720, color: k.rgb(4, 3, 9), opacity: 0.55 });
-            for (let i = 0; i < 5; i++) {
-                const speed   = 0.08 + i * 0.03;
-                const yPos    = 120 + i * 120;
-                const drift   = Math.sin(fogTimer * speed + i * 1.8) * 40;
-                const opacity = 0.06 + Math.sin(fogTimer * 0.4 + i) * 0.03;
-                k.drawRect({ pos: k.vec2(drift, yPos), width: 1280, height: 60,
-                             color: k.rgb(8, 6, 16), opacity: Math.max(opacity, 0.03) });
-            }
-            for (let i = 8; i >= 0; i--) {
-                const t = i / 8;
-                k.drawCircle({ pos: k.vec2(1280 / 2, 720 / 2 + 60), radius: 80 * t,
-                               color: k.rgb(20, 16, 35), opacity: (1 - t) * 0.35 });
-            }
-        },
-    }]);
-    destroyables.push(fogObj);
+    // fog chunks do nothing here — fog is handled globally in level.js
 }
 
 // ── Helper: smiley entity ─────────────────────────────────────────
@@ -117,7 +89,7 @@ function addSmiley(k, xOff, getIsaac, triggerDeath, destroyables) {
             if (dead || despawned) return;
             const isaac = getIsaac();
             if (!isaac) return;
-            if (!spawned && isaac.pos.x > xOff) spawned = true;
+            if (!spawned && isaac.pos.x > xOff + 50) spawned = true;
             if (!spawned) return;
 
             if (spawnTimer < SPAWN_DUR) {
@@ -142,7 +114,7 @@ function addSmiley(k, xOff, getIsaac, triggerDeath, destroyables) {
             if (dist < RADIUS + 13) { dead = true; triggerDeath(); return; }
 
             const screenX = smileyX - (k.camPos().x - 640);
-            if (screenX < -100 || screenX > 1380) despawned = true;
+            if (screenX < -200 || screenX > 1380) despawned = true;
         },
         draw() {
             if (despawned || !spawned) return;
@@ -279,7 +251,7 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
         if (fm === 0) return false;
         if (fm === 1) return x > 280 && x < 540;
         if (fm === 2) return x > 380 && x < 470;
-        if (fm === 3) return x > 160 && x < 640;
+        if (fm === 3) return x > 140 && x < 720;
         return false;
     }
 
@@ -299,6 +271,7 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
             }
             if (boxX === null) continue;
             const nearby = spawnedX.filter(sx => Math.abs(sx - boxX) < BOX_W * 2).length;
+            if (nearby >= 2) continue;
             spawnedX.push(boxX);
 
             const box = k.add([
@@ -379,6 +352,20 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
                 },
                 draw() {
                     const bx = sBox.pos.x, by = sBox.pos.y;
+                    // Orange glow outline
+                    for (let g = 3; g >= 0; g--) {
+                        const spread = (g + 1) * 4;
+                        k.drawRect({
+                            pos:     k.vec2(bx - spread, by - spread),
+                            width:   BOX_W + spread * 2,
+                            height:  BOX_H + spread * 2,
+                            color:   k.rgb(200, 100, 30),
+                            opacity: 0.06 * (4 - g) / 4,
+                            radius:  2,
+                        });
+                    }
+                    k.drawRect({ pos: k.vec2(bx - 1, by - 1), width: BOX_W + 2, height: BOX_H + 2,
+                                color: k.rgb(180, 85, 20), opacity: 0.35 });
                     k.drawRect({ pos: k.vec2(bx, by), width: BOX_W, height: BOX_H, color: isShaking ? k.rgb(65, 28, 28) : k.rgb(35, 26, 48), opacity: 0.95 });
                     k.drawRect({ pos: k.vec2(bx + 4, by + 4), width: BOX_W - 8, height: BOX_H - 8, color: k.rgb(24, 18, 35), opacity: 0.85 });
                     k.drawRect({ pos: k.vec2(bx + BOX_W / 2 - 1, by + 4), width: 2, height: BOX_H - 8, color: k.rgb(48, 36, 62), opacity: 0.6 });
@@ -398,7 +385,7 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
             if (boxX === null) continue;
             spawnedX.push(boxX);
 
-            const PULL_RANGE = BOX_W * 2.5, PULL_FORCE = 1800, GLOW_DUR = 2.0, RED_DUR = 1.0;
+            const PULL_RANGE = BOX_W * 2.25, PULL_FORCE = 1800, GLOW_DUR = 2.0, RED_DUR = 1.0;
             let ghostPhase = "white", ghostTimer = 0, whiteDur = 3 + Math.random() * 7;
 
             const gBox = k.add([
@@ -471,7 +458,7 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
 
     if (boxMode === 1) addBoxes(k, xOff, boxRoll - 4, 0, 0, floorMode);
     else if (boxMode === 2) addBoxes(k, xOff, 5 - (boxRoll - 9), boxRoll - 9, 0, floorMode);
-    else if (boxMode === 3) addBoxes(k, xOff, 2, 3, (boxRoll - 14) / 2, floorMode);
+    else if (boxMode === 3) addBoxes(k, xOff, 2, 2, (boxRoll - 14) / 2, floorMode);
 
     // ── Catwalk helpers ───────────────────────────────────────────
     function addCatwalk(k, xOff, getIsDead, triggerDeath, getIsaac) {
@@ -737,11 +724,7 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
                 try { if (obj && obj.exists()) obj.destroy(); } catch {}
             }
             destroyables.length = 0;
-            if (hasFog) { fogAdded = false; }
         },
+        hasFog,
     };
-}
-
-export function resetFog() {
-    fogAdded = false;
 }

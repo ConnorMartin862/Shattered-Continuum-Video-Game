@@ -4,7 +4,7 @@ import { createSettingsOverlay } from "./settings.js";
 import { drawVignette, fadeToScene } from "./menuRoom.js";
 import { buildChunk1, CHUNK_W, WALL_T } from "../chunks/chunk1.js";
 import { buildChunk20 } from "../chunks/chunk20.js";
-import { buildRandomChunk, resetFog } from "../chunks/chunkRandom.js";
+import { buildRandomChunk } from "../chunks/chunkRandom.js";
 import { getCurrentLevel, completeLevel } from "../state/progress.js";
 import { loadChallengeSettings } from "./challengeOverlay.js";
 import { freeze } from "../state/freezeState.js";
@@ -178,8 +178,6 @@ function getLevelConfig(levelNum) {
 }
 
 export function initLevel(k) {
-    resetFog();
-
     k.scene("level", () => {
 
         const settings = createSettingsOverlay(k);
@@ -202,21 +200,68 @@ export function initLevel(k) {
         // ── Chunks ────────────────────────────────────────────────
         const c1  = buildChunk1(k, 0, config.message);
 
-        const randomChunks = config.chunks.map((rollRanges, i) => {
+        const c20xOff = CHUNK_W * (config.chunkCount + 1);
+        const randomChunks = [];
+        let builtCount = 0;
+        let c20 = null;
+
+        function buildNextChunk() {
+            if (builtCount >= config.chunkCount) return;
+            const i = builtCount;
             const xOff = CHUNK_W * (i + 1);
-            return buildRandomChunk(k, xOff, () => {
+            const chunk = buildRandomChunk(k, xOff, () => {
                 if (isDying) return;
                 isDying = true;
                 k.go("level");
-            }, () => isaac, rollRanges);
-        });
+            }, () => isaac, config.chunks[i]);
+            randomChunks.push(chunk);
+            builtCount++;
+            console.log(`Built chunk ${i + 1} of ${config.chunkCount} at xOff ${xOff}`);
 
-        const c20xOff = CHUNK_W * (config.chunkCount + 1);
-        const c20 = buildChunk20(k, c20xOff, () => {
-            if (levelNum >= 0) completeLevel();
-            resetFog();
-            fadeToScene(k, "menuRoom");
-        });
+
+            if (builtCount === config.chunkCount) {
+                c20 = buildChunk20(k, c20xOff, () => {
+                    if (levelNum >= 0) completeLevel();
+                    resetFog();
+                    fadeToScene(k, "menuRoom");
+                });
+            }
+        }
+
+        // Seed first 3 chunks
+        buildNextChunk();
+        buildNextChunk();
+        buildNextChunk();
+
+        // ── Global fog overlay ────────────────────────────────────
+        let fogTimer = 0;
+        k.add([k.pos(0, 0), k.z(78), k.fixed(), {
+            update() { fogTimer += k.dt(); },
+            draw() {
+                const inFogChunk = randomChunks.some((chunk, i) => {
+                    if (!chunk.hasFog) return false;
+                    const chunkXOff = CHUNK_W * (i + 1);
+                    return isaac.pos.x > chunkXOff && isaac.pos.x < chunkXOff + CHUNK_W;
+                });
+                if (!inFogChunk) return;
+
+                k.drawRect({ pos: k.vec2(0, 0), width: 1280, height: 720,
+                            color: k.rgb(4, 3, 9), opacity: 0.55 });
+                for (let i = 0; i < 5; i++) {
+                    const speed   = 0.08 + i * 0.03;
+                    const yPos    = 120 + i * 120;
+                    const drift   = Math.sin(fogTimer * speed + i * 1.8) * 40;
+                    const opacity = 0.06 + Math.sin(fogTimer * 0.4 + i) * 0.03;
+                    k.drawRect({ pos: k.vec2(drift, yPos), width: 1280, height: 60,
+                                color: k.rgb(8, 6, 16), opacity: Math.max(opacity, 0.03) });
+                }
+                for (let i = 8; i >= 0; i--) {
+                    const t = i / 8;
+                    k.drawCircle({ pos: k.vec2(1280 / 2, 720 / 2 + 60), radius: 80 * t,
+                                color: k.rgb(20, 16, 35), opacity: (1 - t) * 0.35 });
+                }
+            },
+        }]);
 
         // Total width = chunk1 + N random chunks + chunk20
         const totalChunks = config.chunkCount + 2;
@@ -327,7 +372,11 @@ export function initLevel(k) {
             isaacHead.pos.x = isaac.pos.x + ISAAC_W / 2 - 10;
             isaacHead.pos.y = isaac.pos.y - 22;
 
-            c20.checkCollect(isaac);
+            const currentChunkIndex = Math.floor(isaac.pos.x / CHUNK_W);
+            if (currentChunkIndex >= builtCount - 1 && builtCount < config.chunkCount) {
+                buildNextChunk();
+            }
+            if (c20) c20.checkCollect(isaac);
 
             if (spawnTimer > 0.5) {
                 for (let i = 0; i < randomChunks.length; i++) {
@@ -439,7 +488,6 @@ export function initLevel(k) {
         k.onKeyPress("e", () => {
             if (settings.isOpen()) return;
             if (nearDoor) {
-                resetFog();
                 freeze.active = false;
                 freeze.timer  = freeze.duration;
                 freeze.cooldown = 0;  
@@ -473,7 +521,16 @@ export function initLevel(k) {
                     k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: 400, height: 4, color: k.rgb(30, 20, 50), opacity: 0.8 });
                     k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: fillW, height: 4, color: k.rgb(80, 50, 130), opacity: 0.95 });
                     k.drawText({ text: "RECHARGING", pos: k.vec2(W / 2 - 44, 65), size: 12, font: "monospace", color: k.rgb(120, 90, 170), opacity: 0.7 });
-                }
+                } else {
+                    // Progress bar
+                    const totalWidth = CHUNK_W * (config.chunkCount + 2); // chunk1 + randoms + chunk20
+                    const progress = Math.min(isaac.pos.x / totalWidth, 1);
+                    const barW = progress * 400;
+                    const chunk = Math.min(Math.floor(isaac.pos.x / CHUNK_W), config.chunkCount + 1);
+                    const total = config.chunkCount + 2;
+                    k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: 400, height: 4, color: k.rgb(20, 16, 35), opacity: 0.7 });
+                    k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: barW, height: 4, color: k.rgb(80, 130, 180), opacity: 0.85 });
+                    k.drawText({ text: `${Math.floor(progress * 100)}%`, pos: k.vec2(W / 2 + 206, 52), size: 12, font: "monospace", color: k.rgb(100, 150, 200), opacity: 0.65 });                }
             },
         }]);
 

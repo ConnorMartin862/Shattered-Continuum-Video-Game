@@ -23,7 +23,7 @@ const DESK_W     = 112;
 const DESK_TOP_Y = FLOOR_Y - 52;
 
 // Bulletin board
-const BULLETIN_REL_X    = CHUNK_W - 200;
+const BULLETIN_REL_X    = CHUNK_W - 350;
 const BULLETIN_W        = 72;
 const BULLETIN_H        = 90;
 const BULLETIN_Y        = FLOOR_Y - 180;
@@ -80,8 +80,6 @@ export function buildChunk1(k, xOff = 0, message = "") {
 
     // ── Door void + frame ──────────────────────────────────────────
     k.add([k.rect(WALL_T, DOOR_H), k.pos(DOOR_X, DOOR_Y), k.color(4, 3, 9), k.z(15)]);
-    // Top bar
-    k.add([k.rect(WALL_T + 10, 6), k.pos(DOOR_X - 5, DOOR_Y - 6), k.color(36, 30, 50), k.z(15)]);
     // Right jamb
     k.add([k.rect(6, DOOR_H + 6), k.pos(DOOR_X + WALL_T - 6, DOOR_Y - 2), k.color(36, 30, 50), k.z(15)]);
     // Upper panel recess

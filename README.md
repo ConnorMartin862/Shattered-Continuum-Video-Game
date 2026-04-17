@@ -117,8 +117,21 @@ npm run dev
 - Chalk text now uses Cabin Sketch handwritten font with smear and jitter effects
 - Catwalk boards now glow light gray, shift to red when shaking
 
+### Beta 1.2 (4-17-26)
+**General**
+- Max Mode actually works now! Though I still haven't beaten it.
+
+**Balance**
+- Box AI has been nerfed, one less shaking box under max AI.
+- Fog Darkness has been reworked, it won't layer anymore.
+- Smiley spawn AI has been reworked.
+
+**Visuals**
+- The levels now have a progress bar.
+
 ## Future Plans
 
+- [ ] Will implement a feature that saves the player's best max mode performance.
 - [ ] Narrator dialogue system
 - [ ] Chalk letter reveal animation
 - [ ] Art pass — replace placeholder geometry with sprites
