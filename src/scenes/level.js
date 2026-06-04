@@ -222,7 +222,6 @@ export function initLevel(k) {
             if (builtCount === config.chunkCount) {
                 c20 = buildChunk20(k, c20xOff, () => {
                     if (levelNum >= 0) completeLevel();
-                    resetFog();
                     fadeToScene(k, "menuRoom");
                 });
             }
@@ -268,10 +267,12 @@ export function initLevel(k) {
 
         // ── Floor (decorative background only) ───────────────────
         k.add([
-            k.rect(CHUNK_W * totalChunks, FLOOR_H),
-            k.pos(0, FLOOR_Y),
+            k.rect(CHUNK_W, 20),
+            k.pos(k.pos(30, CEIL_H), FLOOR_Y),
             k.color(...COL_FLOOR),
-            k.z(0),
+            k.area(),
+            k.body({ isStatic: true }),
+            k.z(1),   // was k.z(0)
         ]);
 
         // ── Floor trim ────────────────────────────────────────────

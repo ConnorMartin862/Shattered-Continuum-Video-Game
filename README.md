@@ -129,6 +129,14 @@ npm run dev
 **Visuals**
 - The levels now have a progress bar.
 
+### Beta 1.21 (6-4-26)
+**Visuals**
+- Menu Room is significantly smaller
+- Floors in both Menu and Level Rooms are significantly lighter
+
+**Bug Fixes**
+- Fixed getFog bug upon level completion
+
 ## Future Plans
 
 - [ ] Will implement a feature that saves the player's best max mode performance.

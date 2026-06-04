@@ -23,7 +23,7 @@ const SHARD_CY = PED_Y - 28;              // floats above pedestal top
 const SHARD_R = 22;
 
 const COL_WALL = [14, 12, 26];
-const COL_FLOOR = [16, 13, 28];
+const COL_FLOOR = [80, 65, 110];
 const COL_TRIM = [22, 18, 40];
 
 // Shard teleport positions (y values) — index 0 is the only reachable one
@@ -50,14 +50,29 @@ export function buildChunk20(k, xOff = 0, onCollect) {
         k.z(0),
     ]);
 
-    // ── Floor ─────────────────────────────────────────────────────
+    // ── Floor (gradient) ─────────────────────────────────────────────
+    const floorGradientSteps = 8;
+    const floorStepH = 60 / floorGradientSteps;
+    for (let i = 0; i < floorGradientSteps; i++) {
+        const t = i / (floorGradientSteps - 1);
+        const r = Math.round(80 - t * 55);
+        const g = Math.round(65 - t * 45);
+        const b = Math.round(110 - t * 70);
+        k.add([
+            k.rect(CHUNK_W, floorStepH + 1),
+            k.pos(xOff, FLOOR_Y + i * floorStepH),
+            k.color(r, g, b),
+            k.z(80),
+        ]);
+    }
+    // Physics body
     k.add([
-        k.rect(CHUNK_W, 20),
+        k.rect(CHUNK_W, 60),
         k.pos(xOff, FLOOR_Y),
-        k.color(...COL_FLOOR),
+        k.color(80, 65, 110),
         k.area(),
         k.body({ isStatic: true }),
-        k.z(0),
+        k.z(79),
     ]);
 
     // ── Light bulb hanging from ceiling ───────────────────────────

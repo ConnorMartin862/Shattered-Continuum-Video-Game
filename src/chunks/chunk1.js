@@ -9,7 +9,7 @@ const CEIL_H  = 48;
 export const WALL_T  = 82;
 export const CHUNK_W = Math.floor(1280 * 2 / 3);   // 853
 
-const COL_FLOOR = [16, 13, 28];
+const COL_FLOOR = [80, 65, 110];
 const COL_WALL  = [14, 12, 26];
 
 // Door
@@ -41,14 +41,29 @@ export function buildChunk1(k, xOff = 0, message = "") {
         k.z(0),
     ]);
 
-    // ── Floor ─────────────────────────────────────────────────────
+    // ── Floor (gradient) ─────────────────────────────────────────────
+    const floorGradientSteps = 8;
+    const floorStepH = 60 / floorGradientSteps;
+    for (let i = 0; i < floorGradientSteps; i++) {
+        const t = i / (floorGradientSteps - 1);
+        const r = Math.round(80 - t * 55);
+        const g = Math.round(65 - t * 45);
+        const b = Math.round(110 - t * 70);
+        k.add([
+            k.rect(CHUNK_W, floorStepH + 1),
+            k.pos(xOff, FLOOR_Y + i * floorStepH),
+            k.color(r, g, b),
+            k.z(80),
+        ]);
+    }
+    // Physics body — still one solid rect
     k.add([
-        k.rect(CHUNK_W, 20),
+        k.rect(CHUNK_W, 60),
         k.pos(xOff, FLOOR_Y),
-        k.color(...COL_FLOOR),
+        k.color(80, 65, 110),
         k.area(),
         k.body({ isStatic: true }),
-        k.z(0),
+        k.z(79),
     ]);
 
     // Below door (small strip between door bottom and floor)
@@ -57,7 +72,7 @@ export function buildChunk1(k, xOff = 0, message = "") {
         k.add([
             k.rect(WALL_T, FLOOR_Y - doorBottom),
             k.pos(xOff, doorBottom),
-            k.color(...COL_WALL),
+            k.color(...COL_FLOOR),
             k.area(),
             k.body({ isStatic: true }),
             k.z(0),
@@ -68,7 +83,7 @@ export function buildChunk1(k, xOff = 0, message = "") {
         k.add([
             k.rect(WALL_T, bottomHeight),
             k.pos(xOff, doorBottom),
-            k.color(...COL_WALL),
+            k.color(...COL_FLOOR),
             k.area(),
             k.body({ isStatic: true }),
             k.z(0),
