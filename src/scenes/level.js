@@ -15,8 +15,8 @@ const FLOOR_Y = 578;
 const FLOOR_H = H - FLOOR_Y;
 const CEIL_H = 48;
 
-const ISAAC_W = 26;
-const ISAAC_H = 58;
+const ISAAC_W = 50;
+const ISAAC_H = 125;
 
 const DOOR_PROXIMITY = 130;
 const DESK_PROXIMITY = 130;
@@ -336,26 +336,23 @@ export function initLevel(k) {
 
         // ── Isaac ─────────────────────────────────────────────────
         const isaac = k.add([
-            k.rect(ISAAC_W, ISAAC_H),
-            k.pos(WALL_T + 70, FLOOR_Y - ISAAC_H - 2),
-            k.color(50, 45, 68),
-            k.area({ shape: new k.Rect(k.vec2(3, 0), ISAAC_W - 6, ISAAC_H) }),
+            k.sprite("isaac"),
+            k.pos(WALL_T + 70, FLOOR_Y - ISAAC_H),
+            k.scale(1),
+            k.area({ shape: new k.Rect(k.vec2(35, 26), ISAAC_W - 15, ISAAC_H - 30) }),
             k.body(),
-            k.z(80),
+            k.z(79),
             "issac",
         ]);
-
-        const isaacHead = k.add([
-            k.rect(20, 20),
-            k.pos(0, 0),
-            k.color(62, 56, 82),
-            k.z(80),
-        ]);
+        isaac.play("idle");
 
         // ── Jump ──────────────────────────────────────────────────
         k.onKeyPress("space", () => {
             if (settings.isOpen()) return;
-            if (isaac.isGrounded()) isaac.jump(420);
+            if (isaac.isGrounded()) {
+                isaac.jump(420);
+                isaac.play("jump");   // add this
+            }
         });
 
         // ── Spawn grace timer ─────────────────────────────────────
@@ -366,12 +363,20 @@ export function initLevel(k) {
         isaac.onUpdate(() => {
             if (!settings.isOpen() && !bulletin.isOpen()) {
                 const speed = isaac.isGrounded() ? 185 : 240;
-                if (k.isKeyDown("left") || k.isKeyDown("a")) isaac.move(-speed, 0);
-                else if (k.isKeyDown("right") || k.isKeyDown("d")) isaac.move(speed, 0);
+                if (k.isKeyDown("left") || k.isKeyDown("a")) {
+                    isaac.move(-speed, 0);
+                    isaac.flipX = true;
+                    if (isaac.isGrounded() && isaac.curAnim() !== "run") isaac.play("run");
+                } else if (k.isKeyDown("right") || k.isKeyDown("d")) {
+                    isaac.move(speed, 0);
+                    isaac.flipX = false;
+                    if (isaac.isGrounded() && isaac.curAnim() !== "run") isaac.play("run");
+                } else {
+                    if (isaac.isGrounded() && isaac.curAnim() !== "idle") isaac.play("idle");
+                }
             }
 
-            isaacHead.pos.x = isaac.pos.x + ISAAC_W / 2 - 10;
-            isaacHead.pos.y = isaac.pos.y - 22;
+            if (isaac.isGrounded() && isaac.curAnim() === "jump") isaac.play("idle");
 
             const currentChunkIndex = Math.floor(isaac.pos.x / CHUNK_W);
             if (currentChunkIndex >= builtCount - 1 && builtCount < config.chunkCount) {
@@ -381,7 +386,7 @@ export function initLevel(k) {
 
             if (spawnTimer > 0.5) {
                 for (let i = 0; i < randomChunks.length; i++) {
-                    const chunk    = randomChunks[i];
+                    const chunk = randomChunks[i];
                     const chunkXOff = CHUNK_W * (i + 1);
                     chunk.checkDeath(isaac);
                     if (!chunk.destroyed && isaac.pos.x > chunkXOff + CHUNK_W * 2) {
@@ -395,9 +400,19 @@ export function initLevel(k) {
                 isaac.pos.x = WALL_T + 70;
                 isaac.pos.y = FLOOR_Y - ISAAC_H - 80;
             }
-            
+
             const targetX = isaac.pos.x + ISAAC_W / 2;
             k.camPos(Math.max(W / 2, targetX), H / 2);
+
+            // Isaac Collider
+            k.drawRect({
+                pos: k.vec2(isaac.pos.x + 35, isaac.pos.y + 26),
+                width: ISAAC_W - 15,
+                height: ISAAC_H - 30,
+                color: k.rgb(255, 0, 0),
+                opacity: 0.0,
+                fixed: false,
+            });
         });
 
         // ── Door glow ─────────────────────────────────────────────

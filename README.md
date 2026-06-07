@@ -137,6 +137,11 @@ npm run dev
 **Bug Fixes**
 - Fixed getFog bug upon level completion
 
+### Beta 1.25 (6-7-26)
+**Visuals**
+- Isaac is no longer two boxes and is now an actual sprite!
+- This doesn't sound like a lot but it was, expect small fixes with him later
+
 ## Future Plans
 
 - [ ] Will implement a feature that saves the player's best max mode performance.

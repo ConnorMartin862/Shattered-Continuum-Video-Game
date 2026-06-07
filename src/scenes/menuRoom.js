@@ -119,7 +119,7 @@ export function initMenuRoom(k) {
                 k.rect(W, floorStepH + 1),
                 k.pos(0, FLOOR_Y + i * floorStepH),
                 k.color(r, g, b),
-                k.z(0),
+                k.z(80),
             ]);
         }
         k.add([k.rect(W, 5), k.pos(0, FLOOR_Y), k.color(...COL_TRIM), k.opacity(0.9), k.z(0)]);
@@ -349,31 +349,30 @@ export function initMenuRoom(k) {
         const JUMP_FORCE = 400;
 
         const isaac = k.add([
-            k.rect(ISAAC_W, ISAAC_H),
-            k.pos(ISAAC_START_X, ISAAC_START_Y),
-            k.color(50, 45, 68),
-            k.z(10),
+            k.sprite("isaac"),
+            k.pos(ISAAC_START_X, FLOOR_Y),   // was ISAAC_START_Y
+            k.scale(1.3),
+            k.anchor("bot"),                  // add this
+            k.z(40),
             {
                 speed: 185,
                 bobTimer: 0,
-                baseY: ISAAC_START_Y,
+                baseY: FLOOR_Y,
                 vy: 0,
                 onGround: true,
+                facingRight: true,
             },
         ]);
+        isaac.play("idle");
 
-        const isaacHead = k.add([
-            k.rect(28, 28),
-            k.pos(0, 0),
-            k.color(62, 56, 82),
-            k.z(10),
-        ]);
+        console.log("isaac pos:", isaac.pos, "scale:", ISAAC_H / 192);
 
         k.onKeyPress("space", () => {
             if (settings.isOpen() || challenge.isOpen()) return;
             if (isaac.onGround) {
                 isaac.vy = -JUMP_FORCE;
                 isaac.onGround = false;
+                isaac.play("jump");   // add this
             }
         });
 
@@ -384,10 +383,13 @@ export function initMenuRoom(k) {
             if (!blocked) {
                 if (k.isKeyDown("left") || k.isKeyDown("a")) {
                     isaac.pos.x -= isaac.speed * k.dt();
+                    isaac.flipX = true;
+                    if (isaac.onGround && isaac.curAnim() !== "run") isaac.play("run");
                     moving = true;
-                }
-                if (k.isKeyDown("right") || k.isKeyDown("d")) {
+                } else if (k.isKeyDown("right") || k.isKeyDown("d")) {
                     isaac.pos.x += isaac.speed * k.dt();
+                    isaac.flipX = false;
+                    if (isaac.onGround && isaac.curAnim() !== "run") isaac.play("run");
                     moving = true;
                 }
             }
@@ -405,15 +407,13 @@ export function initMenuRoom(k) {
             }
 
             if (isaac.onGround && !moving) {
+                if (isaac.curAnim() !== "idle") isaac.play("idle");
                 isaac.bobTimer += k.dt();
                 isaac.pos.y = isaac.baseY + Math.sin(isaac.bobTimer * 1.6) * 2.2;
             } else if (isaac.onGround) {
                 isaac.pos.y = isaac.baseY;
                 isaac.bobTimer = 0;
             }
-
-            isaacHead.pos.x = isaac.pos.x + ISAAC_W / 2 - 14;
-            isaacHead.pos.y = isaac.pos.y - 30;
         });
 
         // ── Vignette ──────────────────────────────────────────────
