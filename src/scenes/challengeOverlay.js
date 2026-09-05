@@ -11,7 +11,7 @@ const H = 720;
 const STORAGE_KEY = "sc_challenge";
 
 // Panel
-const PW = 580, PH = 500;
+const PW = 580, PH = 560;
 const PX = (W - PW) / 2;
 const PY = (H - PH) / 2;
 
@@ -28,8 +28,8 @@ const CC_BTN_W   = 28, CC_BTN_H = 28;
 const CC_CX      = W / 2;
 
 // Slider rows (custom mode only)
-const ROW_LABELS  = ["FLOOR", "BOX", "CATWALK", "LIGHT"];
-const ROW_KEYS    = ["floor", "box", "catwalk", "light"];
+const ROW_LABELS  = ["FLOOR", "BOX", "CATWALK", "SPIDER", "LIGHT"];
+const ROW_KEYS    = ["floor", "box", "catwalk", "spider", "light"];
 const ROW_START_Y = PY + 192;
 const ROW_GAP     = 60;
 const SLW         = 300;  // total track width
@@ -54,11 +54,12 @@ function inRect(mx, my, x, y, w, h) {
 
 function defaultSettings() {
     return {
-        mode: "custom",  // "custom" or "random"
+        mode: "custom",
         chunkCount: 5,
         floor:   { min: 0, max: 20 },
         box:     { min: 0, max: 20 },
         catwalk: { min: 0, max: 20 },
+        spider:  { min: 0, max: 20 },
         light:   { min: 0, max: 20 },
     };
 }
@@ -94,8 +95,8 @@ export function createChallengeOverlay(k, onEnter) {
     let entHover = false;
     let maxModeHover = false;
 
-    const zeroHover = { floor: false, box: false, catwalk: false, light: false };
-    const maxHover  = { floor: false, box: false, catwalk: false, light: false };
+    const zeroHover = { floor: false, box: false, catwalk: false, spider: false, light: false };
+    const maxHover  = { floor: false, box: false, catwalk: false, spider: false, light: false };
 
     function rowY(i) { return ROW_START_Y + i * ROW_GAP; }
 
@@ -144,6 +145,7 @@ export function createChallengeOverlay(k, onEnter) {
             cfg.floor   = { min: 20, max: 20 };
             cfg.box     = { min: 20, max: 20 };
             cfg.catwalk = { min: 20, max: 20 };
+            cfg.spider  = { min: 20, max: 20 };
             cfg.light   = { min: 20, max: 20 };
             saveSettings(cfg);
             return;

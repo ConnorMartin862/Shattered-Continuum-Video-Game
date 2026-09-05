@@ -1,4 +1,4 @@
-import { freeze } from "../state/freezeState.js";
+import { ability } from "../state/abilityState.js";
 
 // ── Chunk 20 ──────────────────────────────────────────────────────
 // Always the final chunk of every level.
@@ -88,8 +88,8 @@ export function buildChunk20(k, xOff = 0, onCollect) {
     k.add([k.pos(0, 0), k.z(5), {
         draw() {
             k.drawCircle({ pos: k.vec2(bulbX, bulbY + 6), radius: 12, color: k.rgb(180, 175, 220), opacity: 0.15 });
-            k.drawCircle({ pos: k.vec2(bulbX, bulbY + 6), radius: 7,  color: k.rgb(200, 195, 235), opacity: 0.9 });
-            k.drawCircle({ pos: k.vec2(bulbX, bulbY + 5), radius: 3,  color: k.rgb(240, 238, 255), opacity: 1 });
+            k.drawCircle({ pos: k.vec2(bulbX, bulbY + 6), radius: 7, color: k.rgb(200, 195, 235), opacity: 0.9 });
+            k.drawCircle({ pos: k.vec2(bulbX, bulbY + 5), radius: 3, color: k.rgb(240, 238, 255), opacity: 1 });
         },
     }]);
     // Light cone
@@ -98,9 +98,9 @@ export function buildChunk20(k, xOff = 0, onCollect) {
             for (let i = 28; i >= 0; i--) {
                 const t = i / 28;
                 k.drawCircle({
-                    pos:     k.vec2(bulbX, bulbY),
-                    radius:  420 * t,
-                    color:   k.rgb(155, 162, 215),
+                    pos: k.vec2(bulbX, bulbY),
+                    radius: 420 * t,
+                    color: k.rgb(155, 162, 215),
                     opacity: Math.pow(1 - t, 3.5) * 0.12,
                 });
             }
@@ -190,7 +190,7 @@ export function buildChunk20(k, xOff = 0, onCollect) {
                 }
 
                 // Shard teleport movement — skip if frozen
-                if (!freeze.active) {
+                if (!ability.freezeActive) {
                     teleportTimer += k.dt();
                     if (teleportTimer >= teleportInterval) {
                         teleportTimer = 0;

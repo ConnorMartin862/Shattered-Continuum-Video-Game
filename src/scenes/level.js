@@ -7,7 +7,7 @@ import { buildChunk20 } from "../chunks/chunk20.js";
 import { buildRandomChunk } from "../chunks/chunkRandom.js";
 import { getCurrentLevel, completeLevel } from "../state/progress.js";
 import { loadChallengeSettings } from "./challengeOverlay.js";
-import { freeze } from "../state/freezeState.js";
+import { ability, triggerReset, STAMINA_MAX, FREEZE_DRAIN_RATE, COOLDOWN_DURATION, REFILL_RATE } from "../state/abilityState.js";
 
 const W = 1280;
 const H = 720;
@@ -47,15 +47,19 @@ const COL_TRIM = [22, 18, 40];
 //   15-20 → ghost boxes
 //
 // Catwalk roll thresholds:
-//   0-5  → no catwalk
-//   6-11 → falling boards
-//   12-16 → spider entity
-//   17-20 → spider + falling boards
+//   > 10 → falling boards present
+//   ≤ 10 → no boards
+//
+// Spider roll thresholds:
+//   > 10 → spider present
+//   ≤ 10 → no spider
 //
 // Light roll thresholds:
 //   0-13 → normal ceiling light
 //   14-17 → fog
 //   18-20 → fog + smiley
+// Reaper roll thresholds:
+//   0 → tbd
 
 function buildChunks(count, defaults, overrides = []) {
     return Array.from({ length: count }, (_, i) => ({
@@ -73,15 +77,15 @@ function getLevelConfig(levelNum) {
                 message: "Hi #@$!%@, you have no idea where you are right now so let me help you a little here. You are going to walk to the other side of this room, but there are a couple of obstacles. So you are going to press [SPACE] to jump. And pressing [E] might help you a little too. Good luck!",
                 chunks: [
                     // RC1: small gap only, no boxes, no catwalk, no fog
-                    { floor: [4, 8],  box: [0, 9], catwalk: [0, 0], light: [0, 0] },
+                    { floor: [4, 8],  box: [0, 9], catwalk: [0, 0], spider: [0, 0], light: [0, 0] },
                     // RC2: solid floor only
-                    { floor: [0, 3],  box: [0, 9], catwalk: [0, 0], light: [0, 0] },
+                    { floor: [0, 3],  box: [0, 9], catwalk: [0, 0], spider: [0, 0], light: [0, 0] },
                     // RC3: large gap + 1 platform (freeze required)
-                    { floor: [9, 15], box: [0, 9], catwalk: [0, 0], light: [0, 0] },
+                    { floor: [9, 15], box: [0, 9], catwalk: [0, 0], spider: [0, 0], light: [0, 0] },
                     // RC4: any of the three safe floor types
-                    { floor: [0, 15], box: [0, 9], catwalk: [0, 0], light: [0, 0] },
+                    { floor: [0, 15], box: [0, 9], catwalk: [0, 0], spider: [0, 0], light: [0, 0] },
                     // RC5: same as RC4
-                    { floor: [0, 15], box: [0, 9], catwalk: [0, 0], light: [0, 0] },
+                    { floor: [0, 15], box: [0, 9], catwalk: [0, 0], spider: [0, 0], light: [0, 0] },
                 ],
             };
 
@@ -89,70 +93,70 @@ function getLevelConfig(levelNum) {
             return {
                 chunkCount: 5,
                 message: "Consider this an introduction to every other aspect of this room. For some reason the falling floorboards don't listen to your ability, IDK why.",
-                chunks: buildChunks(5, { floor: [0, 16], box: [0, 11], catwalk: [0, 11], light: [0, 13] }),
+                chunks: buildChunks(5, { floor: [0, 16], box: [0, 11], catwalk: [0, 11], spider: [0, 10], light: [0, 13] }),
             };
 
         case 2: // ─── Level 2: Up The Learning Curve ──────────────────────────
             return {
                 chunkCount: 6,
                 message: "Goood! You're learning, watch out for those shaking boxes, I hear they can shove you across the entire room!",
-                chunks: buildChunks(6, { floor: [1, 17], box: [3, 14], catwalk: [0, 11], light: [0, 13] }),
+                chunks: buildChunks(6, { floor: [1, 17], box: [3, 14], catwalk: [0, 11], spider: [0, 10], light: [0, 13] }),
             };
         
         case 3: // ─── Level 3: Box Hungry ────────────────────────────────────
             return {
                 chunkCount: 6,
                 message: "If the shaking boxes weren't enough, the ghost boxes will get you. But beware, if you see them glow, RUN!",
-                chunks: buildChunks(6, { floor: [0, 16], box: [6, 18], catwalk: [0, 9], light: [0, 13] }),
+                chunks: buildChunks(6, { floor: [0, 16], box: [6, 18], catwalk: [0, 9], spider: [0, 10], light: [0, 13] }),
             };
 
         case 4: // ─── Level 4: Lights Out ────────────────────────────────────
             return {
                 chunkCount: 6,
                 message: "So we have been behind on the electric bill, no pressure though. You Got This!",
-                chunks: buildChunks(6, { floor: [3, 17], box: [0, 14], catwalk: [2, 10], light: [5, 16] }),
+                chunks: buildChunks(6, { floor: [3, 17], box: [0, 14], catwalk: [2, 10], spider: [0, 10], light: [5, 16] }),
             };
 
         case 5: // ─── Level 5: Mr Spider ─────────────────────────────────────
             return {
                 chunkCount: 7,
                 message: "So we kind of have a spider infestation here, you should be fine as long as you're not right underneath him. You're ability may or may not work against him.",
-                chunks: buildChunks(7, { floor: [4, 18], box: [0, 15], catwalk: [12, 16], light: [0, 14] }),
+                chunks: buildChunks(7, { floor: [4, 18], box: [0, 15], catwalk: [0, 10], spider: [11, 20], light: [0, 14] }),
             };
 
         case 6: // ─── Level 6: Upping The Ante ─────────────────────────────────────
             return {
                 chunkCount: 7,
                 message: "So everything here is harder, that's about it.",
-                chunks: buildChunks(7, { floor: [0, 20], box: [0, 18], catwalk: [0, 17], light: [0, 16] }),
+                chunks: buildChunks(7, { floor: [0, 20], box: [0, 18], catwalk: [0, 17], spider: [0, 17], light: [0, 16] }),
             };
 
         case 7: // ─── Level 7: Hey Mr Smiley ─────────────────────────────────────
             return {
                 chunkCount: 8,
                 message: "So since we've started to have electrical problems, we've been getting reports about this entity caled Mr Smiley, he's fast but hopefully you can press [E] faster!",
-                chunks: buildChunks(8, { floor: [0, 8], box: [0, 10], catwalk: [0, 12], light: [10, 20] }),
+                chunks: buildChunks(8, { floor: [0, 8], box: [0, 10], catwalk: [0, 12], spider: [0, 10], light: [10, 20] }),
             };
 
         case 8: // ─── Level 8: Everything is On The Table ────────────────────────
             return {
                 chunkCount: 8,
                 message: "I think that is about it. Good Luck!",
-                chunks: buildChunks(8, { floor: [0, 20], box: [0, 20], catwalk: [0, 16], light: [0, 20] }),
+                chunks: buildChunks(8, { floor: [0, 20], box: [0, 20], catwalk: [0, 16], spider: [0, 20], light: [0, 20] }),
             };
 
         case 9: // ─── Level 9: Spider's Return ──────────────────────────────────
             return {
                 chunkCount: 9,
                 message: "The spiders are back! Hope you're prepared.",
-                chunks: buildChunks(9, { floor: [0, 20], box: [0, 20], catwalk: [12, 20], light: [0, 16] }),
+                chunks: buildChunks(9, { floor: [0, 20], box: [0, 20], catwalk: [0, 20], spider: [11, 20], light: [0, 16] }),
             };
 
         case 10: // ─── Level 10: Raising The Stakes ─────────────────────────────
             return {
                 chunkCount: 10,
                 message: "Complete this! And you'll finally know who you are!",
-                chunks: buildChunks(10, { floor: [6, 20], box: [10, 20], catwalk: [7, 20], light: [6, 20] }),
+                chunks: buildChunks(10, { floor: [6, 20], box: [10, 20], catwalk: [7, 20], spider: [7, 20], light: [6, 20] }),
             };
 
         case -2: // ─── Level Custom: You Decide ─────────────────────────────────
@@ -164,6 +168,7 @@ function getLevelConfig(levelNum) {
                     floor:   [ch.floor.min,   ch.floor.max],
                     box:     [ch.box.min,     ch.box.max],
                     catwalk: [ch.catwalk.min, ch.catwalk.max],
+                    spider:  [ch.spider.min,  ch.spider.max],
                     light:   [ch.light.min,   ch.light.max],
                 }),
             };
@@ -183,6 +188,7 @@ export function initLevel(k) {
         const settings = createSettingsOverlay(k);
 
         let isDying = false
+        let staminaFlashTimer = 0;
 
         const bulletin = (() => {
             let open = false;
@@ -481,22 +487,25 @@ export function initLevel(k) {
             bulletinPrompt.alpha += ((nearBulletin && !so && !bulletin.isOpen() ? 1 : 0) - bulletinPrompt.alpha) * rate;
 
             // Freeze countdown
-            if (freeze.active) {
-                freeze.timer -= k.dt();
-                if (freeze.timer <= 0) {
-                    freeze.timer = 0;
-                    freeze.active = false;
-                    freeze.cooldown = freeze.cooldownDuration; // full drain → cooldown
+            if (ability.freezeActive) {
+                ability.stamina -= k.dt() * FREEZE_DRAIN_RATE;
+                if (ability.stamina <= 0) {
+                    ability.stamina = 0;
+                    ability.freezeActive = false;
+                    ability.cooldown = COOLDOWN_DURATION;
                 }
-            } else if (freeze.cooldown > 0) {
-                freeze.cooldown -= k.dt();
-                if (freeze.cooldown <= 0) {
-                    freeze.cooldown = 0;
-                    freeze.timer = freeze.duration; // snap to full after cooldown
+            } else if (ability.cooldown > 0) {
+                ability.cooldown -= k.dt();
+                if (ability.cooldown <= 0) {
+                    ability.cooldown = 0;
+                    ability.stamina = STAMINA_MAX;
                 }
             } else {
-                // partial use → gradual refill, no cooldown
-                freeze.timer = Math.min(freeze.timer + k.dt() * (freeze.duration / freeze.cooldownDuration), freeze.duration);
+                ability.stamina = Math.min(ability.stamina + k.dt() * REFILL_RATE, STAMINA_MAX);
+            }
+
+            if (staminaFlashTimer > 0) {
+                staminaFlashTimer -= k.dt();
             }
         });
 
@@ -504,22 +513,27 @@ export function initLevel(k) {
         k.onKeyPress("e", () => {
             if (settings.isOpen()) return;
             if (nearDoor) {
-                freeze.active = false;
-                freeze.timer  = freeze.duration;
-                freeze.cooldown = 0;  
+                ability.freezeActive = false;
+                ability.stamina  = STAMINA_MAX;
+                ability.cooldown = 0;  
                 fadeToScene(k, "menuRoom");
                 return;
             }
             if (nearDesk) { settings.open(); return; }
             if (nearBulletin && !bulletin.isOpen()) { bulletin.open(); return; }
-            if (freeze.active) {
-                freeze.active = false;
-            } else if (freeze.cooldown <= 0 && freeze.timer > 0) {
-                freeze.active = true;
+            if (ability.freezeActive) {
+                ability.freezeActive = false;
+            } else if (ability.cooldown <= 0 && ability.stamina > 0) {
+                ability.freezeActive = true;
             }
         });
 
-        // new:
+        k.onKeyPress("r", () => {
+            if (settings.isOpen() || bulletin.isOpen()) return;
+            triggerReset();
+            staminaFlashTimer = 1;
+        });
+
         k.onKeyPress((key) => {
             if (bulletin.isOpen() && key !== "e") bulletin.close();
         });
@@ -527,16 +541,16 @@ export function initLevel(k) {
         // ── Freeze UI bar ─────────────────────────────────────────
         k.add([k.pos(0, 0), k.z(95), k.fixed(), {
             draw() {
-                if (freeze.active) {
-                    const barW = (freeze.timer / freeze.duration) * 400;
-                    k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: 400, height: 4, color: k.rgb(30, 20, 50), opacity: 0.8 });
-                    k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: barW, height: 4, color: k.rgb(148, 100, 230), opacity: 0.95 });
-                    k.drawText({ text: "TIME FROZEN", pos: k.vec2(W / 2 - 54, 65), size: 12, font: "monospace", color: k.rgb(180, 150, 230), opacity: 0.7 });
-                } else if (freeze.cooldown > 0) {
-                    const fillW = (1 - freeze.cooldown / freeze.cooldownDuration) * 400;
-                    k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: 400, height: 4, color: k.rgb(30, 20, 50), opacity: 0.8 });
-                    k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: fillW, height: 4, color: k.rgb(80, 50, 130), opacity: 0.95 });
-                    k.drawText({ text: "RECHARGING", pos: k.vec2(W / 2 - 44, 65), size: 12, font: "monospace", color: k.rgb(120, 90, 170), opacity: 0.7 });
+                if (ability.freezeActive || staminaFlashTimer > 0) {
+                    const barW = (ability.stamina / STAMINA_MAX) * 400;
+                    k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: 400, height: 4, color: k.rgb(18, 32, 22), opacity: 0.8 });
+                    k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: barW, height: 4, color: k.rgb(90, 210, 130), opacity: 0.95 });
+                    k.drawText({ text: "STAMINA", pos: k.vec2(W / 2 - 25, 65), size: 12, font: "monospace", color: k.rgb(130, 220, 155), opacity: 0.7 });
+                } else if (ability.cooldown > 0) {
+                    const fillW = (1 - ability.cooldown / COOLDOWN_DURATION) * 400;
+                    k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: 400, height: 4, color: k.rgb(18, 32, 22), opacity: 0.8 });
+                    k.drawRect({ pos: k.vec2(W / 2 - 200, 58), width: fillW, height: 4, color: k.rgb(45, 110, 70), opacity: 0.95 });
+                    k.drawText({ text: "RECHARGING", pos: k.vec2(W / 2 - 36, 65), size: 12, font: "monospace", color: k.rgb(90, 150, 110), opacity: 0.7 });
                 } else {
                     // Progress bar
                     const totalWidth = CHUNK_W * (config.chunkCount + 2); // chunk1 + randoms + chunk20
