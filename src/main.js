@@ -24,6 +24,8 @@ k.loadSprite("isaac", "/assets/isaacDraft.png", {
     },
 });
 
+k.loadSprite("reaper", "/assets/reaper_face_edited.png");
+
 initMenuRoom(k);
 initLevel(k);
 

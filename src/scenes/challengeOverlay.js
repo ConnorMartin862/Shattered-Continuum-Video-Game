@@ -11,7 +11,7 @@ const H = 720;
 const STORAGE_KEY = "sc_challenge";
 
 // Panel
-const PW = 580, PH = 560;
+const PW = 580, PH = 620;
 const PX = (W - PW) / 2;
 const PY = (H - PH) / 2;
 
@@ -27,16 +27,36 @@ const CC_Y       = PY + 134;
 const CC_BTN_W   = 28, CC_BTN_H = 28;
 const CC_CX      = W / 2;
 
-// Slider rows (custom mode only)
-const ROW_LABELS  = ["FLOOR", "BOX", "CATWALK", "SPIDER", "LIGHT"];
-const ROW_KEYS    = ["floor", "box", "catwalk", "spider", "light"];
-const ROW_START_Y = PY + 192;
-const ROW_GAP     = 60;
-const SLW         = 300;  // total track width
-const SL_CX       = W / 2;
-const SL_X        = SL_CX - SLW / 2;
+// Row keys / labels
+const ROW_LABELS  = ["FLOOR", "BOX", "CATWALK", "SPIDER", "REAPER", "LIGHT"];
+const ROW_KEYS    = ["floor", "box", "catwalk", "spider", "reaper", "light"];
+
 const MIN_VAL     = 0;
 const MAX_VAL     = 20;
+
+// Grid layout for custom-mode value editors (3 wide x 2 tall)
+const GRID_COLS  = 3;
+const GRID_GAP_X = 15, GRID_GAP_Y = 20;
+const CELL_W     = 170, CELL_H = 130;
+const GRID_X     = PX + 20;
+const GRID_Y     = PY + 190;
+const BTN_W = 26, BTN_H = 22, BTN_GAP = 6;
+
+function cellPos(i) {
+    const col = i % GRID_COLS;
+    const row = Math.floor(i / GRID_COLS);
+    return {
+        x: GRID_X + col * (CELL_W + GRID_GAP_X),
+        y: GRID_Y + row * (CELL_H + GRID_GAP_Y),
+    };
+}
+
+function drawGridButton(k, x, y, label, hovered) {
+    k.drawRect({ pos: k.vec2(x, y), width: BTN_W, height: BTN_H,
+                 color: hovered ? k.rgb(38, 26, 65) : k.rgb(20, 14, 38), opacity: 1 });
+    k.drawText({ text: label, pos: k.vec2(x + (label.length > 1 ? 4 : 9), y + 4), size: 12,
+                 font: "monospace", color: k.rgb(150, 128, 195), opacity: 1 });
+}
 
 // Enter button
 const ENT_W = 200, ENT_H = 42;
@@ -54,12 +74,13 @@ function inRect(mx, my, x, y, w, h) {
 
 function defaultSettings() {
     return {
-        mode: "custom",
+        mode: "custom",  // "custom" or "random"
         chunkCount: 5,
         floor:   { min: 0, max: 20 },
         box:     { min: 0, max: 20 },
         catwalk: { min: 0, max: 20 },
         spider:  { min: 0, max: 20 },
+        reaper:  { min: 0, max: 20 },
         light:   { min: 0, max: 20 },
     };
 }
@@ -83,9 +104,7 @@ export function loadChallengeSettings() {
 export function createChallengeOverlay(k, onEnter) {
     let mouseX = 0, mouseY = 0, mouseBtn = false;
 
-    // Which knob is being dragged: null | { key, which } where which = "min"|"max"
-    let dragging = null;
-    let isOpen   = false;
+    let isOpen = false;
 
     const cfg = loadSettings();
 
@@ -95,17 +114,10 @@ export function createChallengeOverlay(k, onEnter) {
     let entHover = false;
     let maxModeHover = false;
 
-    const zeroHover = { floor: false, box: false, catwalk: false, spider: false, light: false };
-    const maxHover  = { floor: false, box: false, catwalk: false, spider: false, light: false };
-
-    function rowY(i) { return ROW_START_Y + i * ROW_GAP; }
-
-    function valToX(val) {
-        return SL_X + (val / MAX_VAL) * SLW;
-    }
-
-    function xToVal(x) {
-        return Math.round(Math.max(MIN_VAL, Math.min(MAX_VAL, ((x - SL_X) / SLW) * MAX_VAL)));
+    const btnHover = {};
+    for (const key of ROW_KEYS) {
+        btnHover[key] = { maxZero: false, maxDec: false, maxInc: false, maxTwenty: false,
+                           minZero: false, minDec: false, minInc: false, minTwenty: false };
     }
 
     function onMove(e) {
@@ -146,6 +158,7 @@ export function createChallengeOverlay(k, onEnter) {
             cfg.box     = { min: 20, max: 20 };
             cfg.catwalk = { min: 20, max: 20 };
             cfg.spider  = { min: 20, max: 20 };
+            cfg.reaper  = { min: 20, max: 20 };
             cfg.light   = { min: 20, max: 20 };
             saveSettings(cfg);
             return;
@@ -159,32 +172,49 @@ export function createChallengeOverlay(k, onEnter) {
 
         if (cfg.mode !== "custom") return;
 
-        // Slider zero/max buttons + knob drag
+        // Grid button clicks (min/max value editors)
         for (let i = 0; i < ROW_KEYS.length; i++) {
             const key = ROW_KEYS[i];
-            const ry  = rowY(i);
-            const zeroX = SL_X - 40;
-            const maxBX = SL_X + SLW + 12;
+            const { x: cx, y: cy } = cellPos(i);
+            const maxBtnY = cy + 34;
+            const minBtnY = cy + 96;
+            const btnRowX = cx + (CELL_W - (BTN_W * 4 + BTN_GAP * 3)) / 2;
+            const bx0 = btnRowX, bx1 = bx0 + BTN_W + BTN_GAP, bx2 = bx1 + BTN_W + BTN_GAP, bx3 = bx2 + BTN_W + BTN_GAP;
 
-            if (inRect(mouseX, mouseY, zeroX, ry - 10, 28, 24)) {
-                cfg[key].min = 0; cfg[key].max = 0; saveSettings(cfg); return;
+            if (inRect(mouseX, mouseY, bx0, maxBtnY, BTN_W, BTN_H)) {
+                cfg[key].max = 0;
+                if (cfg[key].min > cfg[key].max) cfg[key].min = cfg[key].max;
+                saveSettings(cfg); return;
             }
-            if (inRect(mouseX, mouseY, maxBX, ry - 10, 28, 24)) {
-                cfg[key].min = 20; cfg[key].max = 20; saveSettings(cfg); return;
+            if (inRect(mouseX, mouseY, bx1, maxBtnY, BTN_W, BTN_H)) {
+                cfg[key].max = Math.max(cfg[key].min, cfg[key].max - 1);
+                saveSettings(cfg); return;
+            }
+            if (inRect(mouseX, mouseY, bx2, maxBtnY, BTN_W, BTN_H)) {
+                cfg[key].max = Math.min(MAX_VAL, cfg[key].max + 1);
+                saveSettings(cfg); return;
+            }
+            if (inRect(mouseX, mouseY, bx3, maxBtnY, BTN_W, BTN_H)) {
+                cfg[key].max = MAX_VAL;
+                saveSettings(cfg); return;
             }
 
-            // Check if clicking near min or max knob
-            const minKX = valToX(cfg[key].min);
-            const maxKX = valToX(cfg[key].max);
-            const hitMin = Math.abs(mouseX - minKX) < 14 && Math.abs(mouseY - ry) < 14;
-            const hitMax = Math.abs(mouseX - maxKX) < 14 && Math.abs(mouseY - ry) < 14;
-
-            if (hitMin || hitMax) {
-                // If both close, pick whichever is closer
-                const dMin = Math.abs(mouseX - minKX);
-                const dMax = Math.abs(mouseX - maxKX);
-                dragging = { key, which: (hitMin && (!hitMax || dMin <= dMax)) ? "min" : "max" };
-                return;
+            if (inRect(mouseX, mouseY, bx0, minBtnY, BTN_W, BTN_H)) {
+                cfg[key].min = 0;
+                saveSettings(cfg); return;
+            }
+            if (inRect(mouseX, mouseY, bx1, minBtnY, BTN_W, BTN_H)) {
+                cfg[key].min = Math.max(0, cfg[key].min - 1);
+                saveSettings(cfg); return;
+            }
+            if (inRect(mouseX, mouseY, bx2, minBtnY, BTN_W, BTN_H)) {
+                cfg[key].min = Math.min(cfg[key].max, cfg[key].min + 1);
+                saveSettings(cfg); return;
+            }
+            if (inRect(mouseX, mouseY, bx3, minBtnY, BTN_W, BTN_H)) {
+                cfg[key].min = MAX_VAL;
+                if (cfg[key].max < cfg[key].min) cfg[key].max = cfg[key].min;
+                saveSettings(cfg); return;
             }
         }
     }
@@ -192,7 +222,6 @@ export function createChallengeOverlay(k, onEnter) {
     function onUp(e) {
         if (e.button !== 0) return;
         mouseBtn = false;
-        if (dragging) { saveSettings(cfg); dragging = null; }
     }
 
     document.addEventListener("mousemove", onMove);
@@ -203,17 +232,6 @@ export function createChallengeOverlay(k, onEnter) {
     const overlay = k.add([k.pos(0, 0), k.z(200), k.fixed(), {
         update() {
             if (!isOpen) return;
-
-            // Drag knob
-            if (dragging && mouseBtn) {
-                const val = xToVal(mouseX);
-                const d   = dragging;
-                if (d.which === "min") {
-                    cfg[d.key].min = Math.min(val, cfg[d.key].max);
-                } else {
-                    cfg[d.key].max = Math.max(val, cfg[d.key].min);
-                }
-            }
 
             // Hover states
             cusHover = inRect(mouseX, mouseY, CUS_X, TOG_Y, TOG_W, TOG_H);
@@ -229,12 +247,20 @@ export function createChallengeOverlay(k, onEnter) {
 
             if (cfg.mode === "custom") {
                 for (let i = 0; i < ROW_KEYS.length; i++) {
-                    const key   = ROW_KEYS[i];
-                    const ry    = rowY(i);
-                    const zeroX = SL_X - 40;
-                    const maxBX = SL_X + SLW + 12;
-                    zeroHover[key] = inRect(mouseX, mouseY, zeroX, ry - 10, 28, 24);
-                    maxHover[key]  = inRect(mouseX, mouseY, maxBX, ry - 10, 28, 24);
+                    const key = ROW_KEYS[i];
+                    const { x: cx, y: cy } = cellPos(i);
+                    const maxBtnY = cy + 34;
+                    const minBtnY = cy + 96;
+                    const btnRowX = cx + (CELL_W - (BTN_W * 4 + BTN_GAP * 3)) / 2;
+                    const bx0 = btnRowX, bx1 = bx0 + BTN_W + BTN_GAP, bx2 = bx1 + BTN_W + BTN_GAP, bx3 = bx2 + BTN_W + BTN_GAP;                    const h = btnHover[key];
+                    h.maxZero   = inRect(mouseX, mouseY, bx0, maxBtnY, BTN_W, BTN_H);
+                    h.maxDec    = inRect(mouseX, mouseY, bx1, maxBtnY, BTN_W, BTN_H);
+                    h.maxInc    = inRect(mouseX, mouseY, bx2, maxBtnY, BTN_W, BTN_H);
+                    h.maxTwenty = inRect(mouseX, mouseY, bx3, maxBtnY, BTN_W, BTN_H);
+                    h.minZero   = inRect(mouseX, mouseY, bx0, minBtnY, BTN_W, BTN_H);
+                    h.minDec    = inRect(mouseX, mouseY, bx1, minBtnY, BTN_W, BTN_H);
+                    h.minInc    = inRect(mouseX, mouseY, bx2, minBtnY, BTN_W, BTN_H);
+                    h.minTwenty = inRect(mouseX, mouseY, bx3, minBtnY, BTN_W, BTN_H);
                 }
             }
         },
@@ -303,63 +329,47 @@ export function createChallengeOverlay(k, onEnter) {
             k.drawRect({ pos: k.vec2(PX + 22, CC_Y + 24), width: PW - 44, height: 1,
                          color: k.rgb(42, 30, 65), opacity: 0.7 });
 
-            // ── Slider rows (custom mode only) ────────────────────
+            // ── Value grid (custom mode only) ──────────────────────
             if (cfg.mode === "custom") {
                 for (let i = 0; i < ROW_KEYS.length; i++) {
-                    const key    = ROW_KEYS[i];
-                    const label  = ROW_LABELS[i];
-                    const ry     = rowY(i);
-                    const range  = cfg[key];
-                    const zeroX  = SL_X - 40;
-                    const maxBX  = SL_X + SLW + 12;
-                    const minKX  = valToX(range.min);
-                    const maxKX  = valToX(range.max);
+                    const key   = ROW_KEYS[i];
+                    const label = ROW_LABELS[i];
+                    const range = cfg[key];
+                    const { x: cx, y: cy } = cellPos(i);
+                    const h = btnHover[key];
 
-                    // Label
-                    k.drawText({ text: label, pos: k.vec2(PX + 22, ry - 8), size: 12,
-                                 font: "monospace", color: k.rgb(120, 105, 155), opacity: 0.85 });
+                    k.drawRect({ pos: k.vec2(cx - 6, cy - 6), width: CELL_W + 12, height: CELL_H + 12,
+                                 color: k.rgb(18, 14, 32), opacity: 0.5 });
 
-                    // Zero button
-                    k.drawRect({ pos: k.vec2(zeroX, ry - 10), width: 28, height: 24,
-                                 color: zeroHover[key] ? k.rgb(38, 26, 65) : k.rgb(20, 14, 38), opacity: 1 });
-                    k.drawText({ text: "0", pos: k.vec2(zeroX + 8, ry - 6), size: 12,
-                                 font: "monospace", color: k.rgb(140, 120, 180), opacity: 1 });
+                    k.drawText({ text: label, pos: k.vec2(cx + (CELL_W - label.length * 8) / 2, cy), size: 13,
+             font: "monospace", color: k.rgb(150, 130, 190), opacity: 0.9 });
 
-                    // Max button
-                    k.drawRect({ pos: k.vec2(maxBX, ry - 10), width: 34, height: 24,
-                                 color: maxHover[key] ? k.rgb(38, 26, 65) : k.rgb(20, 14, 38), opacity: 1 });
-                    k.drawText({ text: "20", pos: k.vec2(maxBX + 6, ry - 6), size: 12,
-                                 font: "monospace", color: k.rgb(140, 120, 180), opacity: 1 });
+                    const maxBtnY = cy + 34;
+                    const btnRowX = cx + (CELL_W - (BTN_W * 4 + BTN_GAP * 3)) / 2;
+                    const bx0 = btnRowX, bx1 = bx0 + BTN_W + BTN_GAP, bx2 = bx1 + BTN_W + BTN_GAP, bx3 = bx2 + BTN_W + BTN_GAP;
+                   k.drawText({ text: "Max:", pos: k.vec2(cx + (CELL_W - 4 * 11) / 2, cy + 20), size: 15,
+             font: "monospace", color: k.rgb(160, 145, 205), opacity: 0.95 });
+                    drawGridButton(k, bx0, maxBtnY, "0",  h.maxZero);
+                    drawGridButton(k, bx1, maxBtnY, "<",  h.maxDec);
+                    drawGridButton(k, bx2, maxBtnY, ">",  h.maxInc);
+                    drawGridButton(k, bx3, maxBtnY, "20", h.maxTwenty);
+                    k.drawText({ text: range.max.toString(), pos: k.vec2(cx + (CELL_W - range.max.toString().length * 9) / 2, maxBtnY + 30), size: 14,
+             font: "monospace", color: k.rgb(195, 180, 225), opacity: 1 });
 
-                    // Track background
-                    k.drawRect({ pos: k.vec2(SL_X, ry - 3), width: SLW, height: 6,
-                                 color: k.rgb(24, 18, 42), opacity: 1 });
-
-                    // Track fill between min and max
-                    if (maxKX > minKX) {
-                        k.drawRect({ pos: k.vec2(minKX, ry - 3), width: maxKX - minKX, height: 6,
-                                     color: k.rgb(88, 58, 148), opacity: 0.85 });
-                    }
-
-                    // Min knob
-                    k.drawCircle({ pos: k.vec2(minKX + 1, ry + 1), radius: 9, color: k.rgb(0, 0, 0), opacity: 0.4 });
-                    k.drawCircle({ pos: k.vec2(minKX, ry), radius: 9, color: k.rgb(120, 88, 185), opacity: 1 });
-                    k.drawCircle({ pos: k.vec2(minKX - 1, ry - 1), radius: 4, color: k.rgb(170, 145, 220), opacity: 0.65 });
-
-                    // Max knob
-                    k.drawCircle({ pos: k.vec2(maxKX + 1, ry + 1), radius: 9, color: k.rgb(0, 0, 0), opacity: 0.4 });
-                    k.drawCircle({ pos: k.vec2(maxKX, ry), radius: 9, color: k.rgb(148, 100, 220), opacity: 1 });
-                    k.drawCircle({ pos: k.vec2(maxKX - 1, ry - 1), radius: 4, color: k.rgb(195, 165, 235), opacity: 0.65 });
-
-                    // Range label
-                    k.drawText({ text: `${range.min} — ${range.max}`,
-                                 pos: k.vec2(SL_X + SLW + 50, ry - 7), size: 12,
-                                 font: "monospace", color: k.rgb(145, 128, 178), opacity: 0.9 });
+                    const minBtnY = cy + 96;
+                    k.drawText({ text: "Min:", pos: k.vec2(cx + (CELL_W - 4 * 11) / 2, cy + 82), size: 15,
+             font: "monospace", color: k.rgb(160, 145, 205), opacity: 0.95 });
+                    drawGridButton(k, bx0, minBtnY, "0",  h.minZero);
+                    drawGridButton(k, bx1, minBtnY, "<",  h.minDec);
+                    drawGridButton(k, bx2, minBtnY, ">",  h.minInc);
+                    drawGridButton(k, bx3, minBtnY, "20", h.minTwenty);
+                    k.drawText({ text: range.min.toString(), pos: k.vec2(cx + (CELL_W - range.min.toString().length * 9) / 2, minBtnY + 30), size: 14,
+             font: "monospace", color: k.rgb(195, 180, 225), opacity: 1 });
                 }
             } else {
                 // Random mode — just show a note
                 k.drawText({ text: "Fully random — all rolls 0 to 20",
-                             pos: k.vec2(W / 2 - 148, ROW_START_Y + ROW_GAP),
+                             pos: k.vec2(W / 2 - 148, GRID_Y + 20),
                              size: 13, font: "monospace", color: k.rgb(100, 88, 130), opacity: 0.7 });
             }
 

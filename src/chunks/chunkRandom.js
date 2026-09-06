@@ -85,12 +85,11 @@ function addLighting(k, xOff, hasFog, getIsDead, destroyables) {
 }
 
 // ── Helper: smiley entity ─────────────────────────────────────────
-function addSmiley(k, xOff, getIsaac, triggerDeath, destroyables) {
-    const SPEED = 185 * 1.3;
-    const RADIUS = 22;
-    const SPAWN_Y = CAT_Y - 40;
+function addSmiley(k, xOff, getIsaac, triggerDeath, spawnX, spawnY, speed) {
+    const SPEED     = speed;
+    const RADIUS    = 22;
 
-    let smileyX = xOff, smileyY = SPAWN_Y;
+    let smileyX = spawnX, smileyY = spawnY;
     let spawned = false, dead = false, despawned = false;
     let spawnTimer = 0;
     const SPAWN_DUR = 2.0;
@@ -103,7 +102,17 @@ function addSmiley(k, xOff, getIsaac, triggerDeath, destroyables) {
 
             if (ability.resetPulse !== localPulse) {
                 localPulse = ability.resetPulse;
-                smileyX = xOff; smileyY = SPAWN_Y;
+
+                const screenX = smileyX - (k.camPos().x - 640);
+                const offScreen = spawned && (screenX < -200 || screenX > 1380);
+
+                if (offScreen) {
+                    despawned = true;
+                    smileyObj.destroy();
+                    return;
+                }
+
+                smileyX = spawnX; smileyY = spawnY;
                 spawned = false; despawned = false;
                 spawnTimer = 0; opacity = 0;
                 glitchX = 0; glitchY = 0; glitchTimer = 0;
@@ -127,16 +136,13 @@ function addSmiley(k, xOff, getIsaac, triggerDeath, destroyables) {
             }
 
             glitchX = 0; glitchY = 0; opacity = 1;
-            if (ability.freezeActive) return;
+            const freezeMult = ability.freezeActive ? (1 / 3) : 1;
 
             const dx = isaac.pos.x + 13 - smileyX;
             const dy = isaac.pos.y + 29 - smileyY;
             const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist > 0) { smileyX += (dx / dist) * SPEED * k.dt(); smileyY += (dy / dist) * SPEED * k.dt(); }
+            if (dist > 0) { smileyX += (dx / dist) * SPEED * freezeMult * k.dt(); smileyY += (dy / dist) * SPEED * freezeMult * k.dt(); }
             if (dist < RADIUS + 13) { dead = true; triggerDeath(); return; }
-
-            const screenX = smileyX - (k.camPos().x - 640);
-            if (screenX < -200 || screenX > 1380) despawned = true;
         },
         draw() {
             if (despawned || !spawned) return;
@@ -161,7 +167,25 @@ function addSmiley(k, xOff, getIsaac, triggerDeath, destroyables) {
             }
         },
     }]);
-    destroyables.push(smileyObj);
+}
+
+// ── Helper: interpolate a value across a difficulty band (linear) ──
+function scaledValue(roll, bandMin, bandMax, startVal, endVal) {
+    const t = bandMax > bandMin ? (roll - bandMin) / (bandMax - bandMin) : 1;
+    const clampedT = Math.min(Math.max(t, 0), 1);
+    return startVal + (endVal - startVal) * clampedT;
+}
+
+// ── Helper: roll a random Smiley spawn point within a box near the
+// catwalk area, relative to the chunk's xOff.
+const SMILEY_SPAWN_BOX_X = [60, CHUNK_W / 2];   // relative to xOff
+const SMILEY_SPAWN_BOX_Y = [CEIL_H + 70, CAT_Y + 60];
+const SMILEY_MIN_SEPARATION = 160;               // min distance between 2 smilies
+
+function rollSmileySpawn(xOff) {
+    const relX = SMILEY_SPAWN_BOX_X[0] + Math.random() * (SMILEY_SPAWN_BOX_X[1] - SMILEY_SPAWN_BOX_X[0]);
+    const y    = SMILEY_SPAWN_BOX_Y[0] + Math.random() * (SMILEY_SPAWN_BOX_Y[1] - SMILEY_SPAWN_BOX_Y[0]);
+    return { x: xOff + relX, y };
 }
 
 // ── Helper: flickering platform ───────────────────────────────────
@@ -222,13 +246,31 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
     const lightRange = rollRanges.light ?? [0, 20];
     const reaperRange = rollRanges.reaper ?? [0,0];
 
-    // ── Lighting ──────────────────────────────────────────────────
+    // ── Lighting/Smiley ───────────────────────────────────────────
     const lightRoll = rollInRange(lightRange);
-    const hasFog = lightRoll > 13;
-    const hasSmiley = lightRoll > 17;
+    const hasFog = lightRoll > 10;
+    const smileyCount = lightRoll <= 14 ? 0 : lightRoll <= 17 ? 1 : 2;
 
     addLighting(k, xOff, hasFog, () => isDead, destroyables);
-    if (hasSmiley) addSmiley(k, xOff, getIsaac, () => triggerDeath(), destroyables);
+
+    if (smileyCount > 0) {
+        const smileySpeed = 185 * scaledValue(lightRoll, 15, 20, 1.15, 1.5);
+        const spawns = [];
+        for (let i = 0; i < smileyCount; i++) {
+            let spawn = null;
+            for (let attempt = 0; attempt < 10; attempt++) {
+                const candidate = rollSmileySpawn(xOff);
+                const tooClose = spawns.some(s => {
+                    const dx = s.x - candidate.x, dy = s.y - candidate.y;
+                    return Math.sqrt(dx * dx + dy * dy) < SMILEY_MIN_SEPARATION;
+                });
+                if (!tooClose) { spawn = candidate; break; }
+            }
+            if (!spawn) spawn = rollSmileySpawn(xOff); // fallback if 10 tries all collide
+            spawns.push(spawn);
+            addSmiley(k, xOff, getIsaac, () => triggerDeath(), spawn.x, spawn.y, smileySpeed);
+        }
+    }
 
     // ── Floor ─────────────────────────────────────────────────────
     const floorRoll = rollInRange(floorRange);
@@ -257,30 +299,37 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
         addGapDarkness(k, xOff + GAP_START, GAP_WIDTH);
 
     } else if (floorMode === 3) {
-        const GAP_START = 160, GAP_WIDTH = 480, GAP_END = GAP_START + GAP_WIDTH;
+        const EDGE_MARGIN = 50, FALL_GAP = 60;
+        const GAP_WIDTH = EDGE_MARGIN * 2 + PLAT_W * 3 + FALL_GAP * 2; // 560
+        const GAP_START = 140, GAP_END = GAP_START + GAP_WIDTH;
         addFloor(k, xOff,                    GAP_START - offset);
         addFloor(k, xOff + GAP_END + offset, CHUNK_W - GAP_END - offset);
         addGapDarkness(k, xOff + GAP_START, GAP_WIDTH);
-        const spacing = GAP_WIDTH / 4;
         const tripleCycle = scaledCycle(floorRoll, 17, 20, 2.0, 1.8, 1.1);
+        const plat1X = GAP_START + EDGE_MARGIN;
+        const plat2X = plat1X + PLAT_W + FALL_GAP;
+        const plat3X = plat2X + PLAT_W + FALL_GAP;
         const platDefs = [
-            { offset: spacing * 1, phase: 0 },
-            { offset: spacing * 2, phase: 0.163 },
-            { offset: spacing * 3, phase: 0.33 },
+            { x: plat1X, phase: 0 },
+            { x: plat2X, phase: 0.163 },
+            { x: plat3X, phase: 0.33 },
         ];
         for (const pd of platDefs) {
-            addFlickerPlat(k, xOff + GAP_START + pd.offset - PLAT_W / 2, pd.phase, tripleCycle, () => isDead, destroyables);
+            addFlickerPlat(k, xOff + pd.x, pd.phase, tripleCycle, () => isDead, destroyables);
         }
     } else if (floorMode === 4) {
-        const GAP_START = 220, GAP_WIDTH = 360, GAP_END = GAP_START + GAP_WIDTH;
+        const EDGE_MARGIN = 50, FALL_GAP = 60;
+        const GAP_WIDTH = EDGE_MARGIN * 2 + PLAT_W * 2 + FALL_GAP; // 390
+        const GAP_START = 210, GAP_END = GAP_START + GAP_WIDTH;
         addFloor(k, xOff,                    GAP_START - offset);
         addFloor(k, xOff + GAP_END + offset, CHUNK_W - GAP_END - offset);
         addGapDarkness(k, xOff + GAP_START, GAP_WIDTH);
         const doubleCycle = scaledCycle(floorRoll, 12, 16, PLAT_CYCLE, 2.3, 1.15);
-        const dSpacing = GAP_WIDTH / 3;
+        const plat1X = GAP_START + EDGE_MARGIN;
+        const plat2X = plat1X + PLAT_W + FALL_GAP;
         // Both platforms share phase 0 and the same cycle → they flash in unison.
-        addFlickerPlat(k, xOff + GAP_START + dSpacing * 1 - PLAT_W / 2, 0, doubleCycle, () => isDead, destroyables);
-        addFlickerPlat(k, xOff + GAP_START + dSpacing * 2 - PLAT_W / 2, 0, doubleCycle, () => isDead, destroyables);
+        addFlickerPlat(k, xOff + plat1X, 0, doubleCycle, () => isDead, destroyables);
+        addFlickerPlat(k, xOff + plat2X, 0, doubleCycle, () => isDead, destroyables);
     }
 
     // ── Helper: check if x is over a gap ─────────────────────────
@@ -288,8 +337,8 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
         if (fm === 0) return false;
         if (fm === 1) return x > 280 && x < 540;
         if (fm === 2) return x > 380 && x < 470;
-        if (fm === 3) return x > 140 && x < 720;
-        if (fm === 4) return x > 220 && x < 580;   // NEW
+        if (fm === 3) return x > 140 && x < 600;
+        if (fm === 4) return x > 210 && x < 530;
         return false;
     }
 
@@ -613,10 +662,10 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
         }]);
     }
 
-    function addCatwalkSpider(k, xOff, getIsaac, triggerDeath) {
+    function addCatwalkSpider(k, xOff, getIsaac, triggerDeath, crawlSpeed) {
         const TOP_Y = CAT_Y - 14, BOTTOM_Y = CAT_Y + CAT_BOARD_H + 10;
         const LEFT_X = xOff, RIGHT_X = xOff + CHUNK_W - 20;
-        const CRAWL_SPEED = 120, DROP_SPEED = 1500, DETECT_RANGE = 60;
+        const CRAWL_SPEED = crawlSpeed, DROP_SPEED = 1500, DETECT_RANGE = 60;
 
         let spiderX = xOff + CHUNK_W / 2, spiderY = BOTTOM_Y;
         let phase = "bottom-left", loopTimer = 0;
@@ -727,11 +776,13 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
     const hasBoards = catwalkRoll > 10;   // adjust threshold to taste
     const hasSpider = spiderRoll  > 10;   // adjust threshold to taste
 
+    const spiderSpeed = scaledValue(spiderRoll, 11, 20, 90, 400);
+
     let catwalk = null;
     if (hasBoards && hasSpider) {
         const boards = addCatwalk(k, xOff, () => isDead, () => triggerDeath(), getIsaac);
         addCatwalkRailing(k, xOff);
-        const spider = addCatwalkSpider(k, xOff, getIsaac, () => triggerDeath());
+        const spider = addCatwalkSpider(k, xOff, getIsaac, () => triggerDeath(), spiderSpeed);
         catwalk = { trigger() { boards.trigger(); spider.trigger(); } };
 
     } else if (hasBoards) {
@@ -752,7 +803,7 @@ export function buildRandomChunk(k, xOff = 0, onDeath, getIsaac, rollRanges = {}
             ]);
             destroyables.push(solidBoard);
         }
-        const spider = addCatwalkSpider(k, xOff, getIsaac, () => triggerDeath());
+        const spider = addCatwalkSpider(k, xOff, getIsaac, () => triggerDeath(), spiderSpeed);
         catwalk = { trigger() { spider.trigger(); } };
     }
 

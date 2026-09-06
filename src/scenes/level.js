@@ -8,6 +8,7 @@ import { buildRandomChunk } from "../chunks/chunkRandom.js";
 import { getCurrentLevel, completeLevel } from "../state/progress.js";
 import { loadChallengeSettings } from "./challengeOverlay.js";
 import { ability, triggerReset, STAMINA_MAX, FREEZE_DRAIN_RATE, COOLDOWN_DURATION, REFILL_RATE } from "../state/abilityState.js";
+import { reaper, initReaper, registerReaperPulse, getReaperOpacity } from "../state/reaperState.js";
 
 const W = 1280;
 const H = 720;
@@ -31,35 +32,43 @@ const COL_TRIM = [22, 18, 40];
 // Each level defines how many random chunks it has and what roll
 // ranges to pass to buildRandomChunk for each chunk.
 //
-// rollRanges per chunk: { floor, box, catwalk, light }
+// rollRanges per chunk: { floor, box, catwalk, spider, light }
 // Each is a [min, max] tuple. Omitted = [0, 20] (fully random).
+// reaper is a level-wide [min, max] set on the level config itself
+// (a sibling of chunkCount/message), not per-chunk — it's rolled once
+// per level and stays constant for that entire playthrough.
 //
 // Floor roll thresholds:
-//   0-3  → solid floor
-//   4-8  → small gap (no platform)
-//   9-15 → large gap + 1 flickering platform
-//   16-20 → extreme gap + 3 platforms
+//   0-3   → solid floor
+//   4-7   → gap, no platform
+//   8-11  → single platform
+//   12-16 → double platform (synced flash)
+//   17-20 → triple platform (staggered flash)
 //
 // Box roll thresholds:
-//   0-4  → no boxes
-//   5-9  → normal boxes
-//   10-14 → shaking boxes
-//   15-20 → ghost boxes
+//   0-4   → no boxes
+//   5-9   → normal boxes (ramps 1→3)
+//   10-14 → normal + shaking boxes
+//   15-20 → normal + shaking + ghost boxes (1 ghost at 15-17, 2 at 18-20)
 //
 // Catwalk roll thresholds:
 //   > 10 → falling boards present
 //   ≤ 10 → no boards
 //
 // Spider roll thresholds:
-//   > 10 → spider present
+//   > 10 → spider present, crawl speed scales 11→20
 //   ≤ 10 → no spider
 //
 // Light roll thresholds:
-//   0-13 → normal ceiling light
-//   14-17 → fog
-//   18-20 → fog + smiley
+//   0-10  → normal ceiling light
+//   11-14 → fog
+//   15-17 → fog + 1 smiley
+//   18-20 → fog + 2 smilies
+//
 // Reaper roll thresholds:
-//   0 → tbd
+//   0     → doesn't exist (infinite Pulse uses)
+//   1-20  → exists; max Pulse uses per level scales from
+//           chunkCount × 3 (at roll 1) down to chunkCount × 0.8 (at roll 20)
 
 function buildChunks(count, defaults, overrides = []) {
     return Array.from({ length: count }, (_, i) => ({
@@ -75,17 +84,18 @@ function getLevelConfig(levelNum) {
             return {
                 chunkCount: 5,
                 message: "Hi #@$!%@, you have no idea where you are right now so let me help you a little here. You are going to walk to the other side of this room, but there are a couple of obstacles. So you are going to press [SPACE] to jump. And pressing [E] might help you a little too. Good luck!",
+                reaper: [0,0],
                 chunks: [
                     // RC1: small gap only, no boxes, no catwalk, no fog
-                    { floor: [4, 8],  box: [0, 9], catwalk: [0, 0], spider: [0, 0], light: [0, 0] },
+                    { floor: [4, 7],  box: [0, 0], catwalk: [0, 0], spider: [0, 0], light: [0, 0] },
                     // RC2: solid floor only
-                    { floor: [0, 3],  box: [0, 9], catwalk: [0, 0], spider: [0, 0], light: [0, 0] },
+                    { floor: [0, 3],  box: [0, 0], catwalk: [0, 0], spider: [0, 0], light: [0, 0] },
                     // RC3: large gap + 1 platform (freeze required)
-                    { floor: [9, 15], box: [0, 9], catwalk: [0, 0], spider: [0, 0], light: [0, 0] },
+                    { floor: [8, 8], box: [0, 0], catwalk: [0, 0], spider: [0, 0], light: [0, 0] },
                     // RC4: any of the three safe floor types
-                    { floor: [0, 15], box: [0, 9], catwalk: [0, 0], spider: [0, 0], light: [0, 0] },
+                    { floor: [0, 10], box: [0, 0], catwalk: [0, 0], spider: [0, 0], light: [0, 0] },
                     // RC5: same as RC4
-                    { floor: [0, 15], box: [0, 9], catwalk: [0, 0], spider: [0, 0], light: [0, 0] },
+                    { floor: [0, 10], box: [0, 0], catwalk: [0, 0], spider: [0, 0], light: [0, 0] },
                 ],
             };
 
@@ -93,34 +103,39 @@ function getLevelConfig(levelNum) {
             return {
                 chunkCount: 5,
                 message: "Consider this an introduction to every other aspect of this room. For some reason the falling floorboards don't listen to your ability, IDK why.",
-                chunks: buildChunks(5, { floor: [0, 16], box: [0, 11], catwalk: [0, 11], spider: [0, 10], light: [0, 13] }),
+                reaper: [0, 0],
+                chunks: buildChunks(5, { floor: [0, 16], box: [0, 10], catwalk: [0, 15], spider: [0, 10], light: [0, 10] }),
             };
 
         case 2: // ─── Level 2: Up The Learning Curve ──────────────────────────
             return {
                 chunkCount: 6,
                 message: "Goood! You're learning, watch out for those shaking boxes, I hear they can shove you across the entire room!",
-                chunks: buildChunks(6, { floor: [1, 17], box: [3, 14], catwalk: [0, 11], spider: [0, 10], light: [0, 13] }),
+                reaper: [0, 0],
+                chunks: buildChunks(6, { floor: [1, 17], box: [3, 14], catwalk: [0, 15], spider: [0, 10], light: [0, 10] }),
             };
         
         case 3: // ─── Level 3: Box Hungry ────────────────────────────────────
             return {
                 chunkCount: 6,
                 message: "If the shaking boxes weren't enough, the ghost boxes will get you. But beware, if you see them glow, RUN!",
-                chunks: buildChunks(6, { floor: [0, 16], box: [6, 18], catwalk: [0, 9], spider: [0, 10], light: [0, 13] }),
+                reaper: [0, 0],
+                chunks: buildChunks(6, { floor: [0, 16], box: [6, 18], catwalk: [0, 10], spider: [0, 10], light: [0, 10] }),
             };
 
         case 4: // ─── Level 4: Lights Out ────────────────────────────────────
             return {
                 chunkCount: 6,
                 message: "So we have been behind on the electric bill, no pressure though. You Got This!",
-                chunks: buildChunks(6, { floor: [3, 17], box: [0, 14], catwalk: [2, 10], spider: [0, 10], light: [5, 16] }),
+                reaper: [0, 0],
+                chunks: buildChunks(6, { floor: [3, 17], box: [0, 14], catwalk: [2, 15], spider: [0, 10], light: [5, 14] }),
             };
 
         case 5: // ─── Level 5: Mr Spider ─────────────────────────────────────
             return {
                 chunkCount: 7,
                 message: "So we kind of have a spider infestation here, you should be fine as long as you're not right underneath him. You're ability may or may not work against him.",
+                reaper: [0, 0],
                 chunks: buildChunks(7, { floor: [4, 18], box: [0, 15], catwalk: [0, 10], spider: [11, 20], light: [0, 14] }),
             };
 
@@ -128,6 +143,7 @@ function getLevelConfig(levelNum) {
             return {
                 chunkCount: 7,
                 message: "So everything here is harder, that's about it.",
+                reaper: [0, 0],
                 chunks: buildChunks(7, { floor: [0, 20], box: [0, 18], catwalk: [0, 17], spider: [0, 17], light: [0, 16] }),
             };
 
@@ -135,27 +151,31 @@ function getLevelConfig(levelNum) {
             return {
                 chunkCount: 8,
                 message: "So since we've started to have electrical problems, we've been getting reports about this entity caled Mr Smiley, he's fast but hopefully you can press [E] faster!",
+                reaper: [0, 2],
                 chunks: buildChunks(8, { floor: [0, 8], box: [0, 10], catwalk: [0, 12], spider: [0, 10], light: [10, 20] }),
             };
 
         case 8: // ─── Level 8: Everything is On The Table ────────────────────────
             return {
                 chunkCount: 8,
-                message: "I think that is about it. Good Luck!",
-                chunks: buildChunks(8, { floor: [0, 20], box: [0, 20], catwalk: [0, 16], spider: [0, 20], light: [0, 20] }),
+                message: "One additional tip, if you press [R], you can reset everything around you. Bet you would've loved to know about that in the last level, huh! Just don't use it too much, trust me.",
+                reaper: [1, 5],
+                chunks: buildChunks(8, { floor: [0, 20], box: [0, 20], catwalk: [0, 16], spider: [0, 20], light: [0, 17] }),
             };
 
         case 9: // ─── Level 9: Spider's Return ──────────────────────────────────
             return {
                 chunkCount: 9,
                 message: "The spiders are back! Hope you're prepared.",
-                chunks: buildChunks(9, { floor: [0, 20], box: [0, 20], catwalk: [0, 20], spider: [11, 20], light: [0, 16] }),
+                reaper: [1, 6],
+                chunks: buildChunks(9, { floor: [0, 20], box: [0, 20], catwalk: [0, 20], spider: [11, 20], light: [0, 18] }),
             };
 
         case 10: // ─── Level 10: Raising The Stakes ─────────────────────────────
             return {
                 chunkCount: 10,
                 message: "Complete this! And you'll finally know who you are!",
+                reaper: [2, 8],
                 chunks: buildChunks(10, { floor: [6, 20], box: [10, 20], catwalk: [7, 20], spider: [7, 20], light: [6, 20] }),
             };
 
@@ -164,6 +184,7 @@ function getLevelConfig(levelNum) {
             return {
                 chunkCount: ch.chunkCount,
                 message: "",
+                reaper: [ch.reaper.min, ch.reaper.max],
                 chunks: buildChunks(ch.chunkCount, {
                     floor:   [ch.floor.min,   ch.floor.max],
                     box:     [ch.box.min,     ch.box.max],
@@ -202,6 +223,7 @@ export function initLevel(k) {
 
         const levelNum = getCurrentLevel();
         const config   = getLevelConfig(levelNum);
+        initReaper(config.reaper ?? [0, 0], config.chunkCount);
 
         // ── Chunks ────────────────────────────────────────────────
         const c1  = buildChunk1(k, 0, config.message);
@@ -354,7 +376,7 @@ export function initLevel(k) {
 
         // ── Jump ──────────────────────────────────────────────────
         k.onKeyPress("space", () => {
-            if (settings.isOpen()) return;
+            if (settings.isOpen() || reaper.dying) return;
             if (isaac.isGrounded()) {
                 isaac.jump(420);
                 isaac.play("jump");   // add this
@@ -367,7 +389,7 @@ export function initLevel(k) {
 
         // ── Isaac update ──────────────────────────────────────────
         isaac.onUpdate(() => {
-            if (!settings.isOpen() && !bulletin.isOpen()) {
+            if (!settings.isOpen() && !bulletin.isOpen() && !reaper.dying) {
                 const speed = isaac.isGrounded() ? 185 : 240;
                 if (k.isKeyDown("left") || k.isKeyDown("a")) {
                     isaac.move(-speed, 0);
@@ -507,11 +529,18 @@ export function initLevel(k) {
             if (staminaFlashTimer > 0) {
                 staminaFlashTimer -= k.dt();
             }
+
+            if (reaper.dying) {
+                reaper.dyingTimer -= k.dt();
+                if (reaper.dyingTimer <= 0) {
+                    fadeToScene(k, "menuRoom");
+                }
+            }
         });
 
         // ── Single unified onKeyPress e ───────────────────────────
         k.onKeyPress("e", () => {
-            if (settings.isOpen()) return;
+            if (settings.isOpen() || reaper.dying) return;
             if (nearDoor) {
                 ability.freezeActive = false;
                 ability.stamina  = STAMINA_MAX;
@@ -529,9 +558,10 @@ export function initLevel(k) {
         });
 
         k.onKeyPress("r", () => {
-            if (settings.isOpen() || bulletin.isOpen()) return;
+            if (settings.isOpen() || bulletin.isOpen() || reaper.dying) return;
             triggerReset();
             staminaFlashTimer = 1;
+            registerReaperPulse();
         });
 
         k.onKeyPress((key) => {
@@ -588,6 +618,15 @@ export function initLevel(k) {
                             pos: k.vec2(PX + PW / 2 - 80, PY + PH - 32),
                             size: 12, font: "monospace",
                             color: k.rgb(100, 85, 130), opacity: 0.7 });
+            },
+        }]);
+
+        // ── Reaper overlay ────────────────────────────────────────────
+        k.add([k.pos(0, 0), k.z(500), k.fixed(), {
+            draw() {
+                const op = getReaperOpacity();
+                if (op <= 0) return;
+                k.drawSprite({ sprite: "reaper", pos: k.vec2(0, 0), width: W, height: H, opacity: op });
             },
         }]);
 
